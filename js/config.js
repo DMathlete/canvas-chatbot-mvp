@@ -1,1 +1,1 @@
-const OPENAI_API_KEY = "sk-your-api-key-here"; // Replace with your real key
+const OPENAI_API_KEY = "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"; // Replace with your real key
