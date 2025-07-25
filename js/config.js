@@ -1,1 +1,0 @@
-const OPENAI_API_KEY = "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"; // Replace with your real key
