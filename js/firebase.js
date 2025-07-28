@@ -1,4 +1,4 @@
-// Use Firebase from the global namespace (already loaded by <script> tags in index.html)
+// Firebase config
 const firebaseConfig = {
   apiKey: "YOUR_FIREBASE_API_KEY",
   authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",

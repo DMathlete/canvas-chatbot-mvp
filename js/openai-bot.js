@@ -31,33 +31,45 @@ function appendMessage(role, text) {
 }
 
 async function getBotReply() {
-  const response = await fetch("https://31f8dec9-c49d-44aa-9022-a184fb08ea7d-00-2o8rr8b5jwou.spock.replit.dev/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: messageLog })
-  });
+  try {
+    const response = await fetch("https://your-proxy-url/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: messageLog })
+    });
 
-  if (!response.ok) {
-    appendMessage("bot", "⚠️ Error contacting tutor bot.");
-    return;
+    if (!response.ok) {
+      appendMessage("bot", "⚠️ Error: Failed to reach tutor bot.");
+      console.error("API error:", await response.text());
+      return;
+    }
+
+    const data = await response.json();
+    if (!data.choices || !data.choices[0]) {
+      appendMessage("bot", "⚠️ Error: Invalid response from tutor bot.");
+      console.error("Unexpected API response:", data);
+      return;
+    }
+
+    const botReply = data.choices[0].message.content;
+    messageLog.push({ role: "assistant", content: botReply });
+    appendMessage("bot", botReply);
+
+    const metadata = {
+      session_id: sessionId,
+      user_id: userId,
+      message_count: messageLog.length,
+      start_time: startTime.toISOString(),
+      end_time: new Date().toISOString(),
+      topics: extractTopics(messageLog),
+      messages: messageLog
+    };
+    logSessionDataToFirebase(metadata);
+
+  } catch (error) {
+    console.error("Chatbot error:", error);
+    appendMessage("bot", "⚠️ Error: Could not process your request.");
   }
-
-  const data = await response.json();
-  const botReply = data.choices[0].message.content;
-  messageLog.push({ role: "assistant", content: botReply });
-  appendMessage("bot", botReply);
-
-  const metadata = {
-    session_id: sessionId,
-    user_id: userId,
-    message_count: messageLog.length,
-    start_time: startTime.toISOString(),
-    end_time: new Date().toISOString(),
-    topics: extractTopics(messageLog),
-    messages: messageLog
-  };
-
-  logSessionDataToFirebase(metadata);
 }
 
 function extractTopics(log) {
