@@ -17,10 +17,9 @@
   <input id="userInput" type="text" placeholder="Ask a question..." />
   <button onclick="sendMessage()">Send</button>
 
-<!-- Firebase UMD scripts (NO "type=module") -->
-<!-- ✅ Firebase SDK (UMD version) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<!-- Firebase SDK (UMD version, NOT module) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
 <!-- ✅ Your Firebase and Bot Scripts -->
 <script src="js/firebase.js"></script>
