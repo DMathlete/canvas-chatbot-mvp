@@ -32,7 +32,7 @@ function appendMessage(role, text) {
 
 async function getBotReply() {
   try {
-    const response = await fetch("https://your-proxy-url/chat", {
+    const response = await fetch("https://31f8dec9-c49d-44aa-9022-a184fb08ea7d-00-2o8rr8b5jwou.spock.replit.dev/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: messageLog })
