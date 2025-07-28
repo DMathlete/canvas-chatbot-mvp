@@ -1,3 +1,4 @@
+// Use Firebase from the global namespace (already loaded by <script> tags in index.html)
 const firebaseConfig = {
   apiKey: "YOUR_FIREBASE_API_KEY",
   authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
@@ -7,7 +8,8 @@ const firebaseConfig = {
   appId: "YOUR_APP_ID"
 };
 
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 async function logSessionDataToFirebase(metadata) {
