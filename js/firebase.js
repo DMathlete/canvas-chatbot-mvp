@@ -1,11 +1,11 @@
 // Firebase config
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
-  projectId: "YOUR_FIREBASE_PROJECT",
-  storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyC-UCogQItaHwhqyq7q68a9GOoNreinYHE",
+  authDomain: "canvaschatbot.firebaseapp.com",
+  projectId: "canvaschatbot",
+  storageBucket: "canvaschatbot.firebasestorage.app",
+  messagingSenderId: "93513233362",
+  appId: "1:93513233362:web:874453254d707bde224e0b",
 };
 
 // Initialize Firebase
