@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chatbot Session Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h2 { color: #333; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f5f5f5; }
+    input { padding: 6px; margin-bottom: 10px; width: 250px; }
+    .message-log { background: #f9f9f9; padding: 10px; margin-top: 10px; border: 1px solid #ccc; }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+</head>
+<body>
+  <h2>📊 Chatbot Session Dashboard</h2>
+  <input type="text" id="searchInput" placeholder="Search by User ID or Session ID..." onkeyup="filterSessions()">
+  <table id="sessionTable">
+    <thead>
+      <tr>
+        <th>Session ID</th>
+        <th>User ID</th>
+        <th>Messages</th>
+        <th>Topics</th>
+        <th>Start Time</th>
+        <th>End Time</th>
+        <th>View Log</th>
+      </tr>
+    </thead>
+    <tbody id="sessionBody"></tbody>
+  </table>
+
+  <div id="logContainer" class="message-log" style="display:none;"></div>
+
+  <script>
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
+      projectId: "YOUR_FIREBASE_PROJECT",
+      storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const sessionBody = document.getElementById("sessionBody");
+    const logContainer = document.getElementById("logContainer");
+
+    // Fetch sessions from Firestore
+    async function loadSessions() {
+      const snapshot = await db.collection("chat_sessions").orderBy("start_time", "desc").get();
+      sessionBody.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const row = `
+          <tr>
+            <td>${data.session_id}</td>
+            <td>${data.user_id}</td>
+            <td>${data.message_count}</td>
+            <td>${data.topics.join(", ")}</td>
+            <td>${new Date(data.start_time).toLocaleString()}</td>
+            <td>${new Date(data.end_time).toLocaleString()}</td>
+            <td><button onclick="viewLog(${JSON.stringify(data.messages).replace(/"/g, '&quot;')})">View</button></td>
+          </tr>
+        `;
+        sessionBody.innerHTML += row;
+      });
+    }
+
+    // View message log
+    function viewLog(messages) {
+      logContainer.style.display = "block";
+      logContainer.innerHTML = "<h3>Conversation Log</h3>";
+      messages.forEach(m => {
+        const role = m.role === "user" ? "👤 User" : m.role === "assistant" ? "🤖 Bot" : "⚙️ System";
+        logContainer.innerHTML += `<p><strong>${role}:</strong> ${m.content}</p>`;
+      });
+    }
+
+    // Filter by User ID or Session ID
+    function filterSessions() {
+      const filter = document.getElementById("searchInput").value.toLowerCase();
+      const rows = sessionBody.getElementsByTagName("tr");
+      for (let row of rows) {
+        row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+      }
+    }
+
+    loadSessions();
+  </script>
+</body>
+</html>
