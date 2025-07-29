@@ -51,7 +51,7 @@
           <td>${data.session_id}</td>
           <td>${data.user_id}</td>
           <td>${new Date(data.start_time).toLocaleString()}</td>
-          <td>${data.message_count}</td>
+          <td>${data.user_message_count}</td>
           <td>${(data.topics || []).join(", ")}</td>
         </tr>`;
         tableBody.innerHTML += row;
