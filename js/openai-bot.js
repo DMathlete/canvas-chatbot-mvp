@@ -1,3 +1,15 @@
+// --- Firebase Initialization ---
+const firebaseConfig = {
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
+  projectId: "YOUR_FIREBASE_PROJECT",
+  storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 let messageLog = [
   {
     role: "system",
@@ -32,7 +44,7 @@ function appendMessage(role, text) {
 
 async function getBotReply() {
   try {
-    const response = await fetch("https://31f8dec9-c49d-44aa-9022-a184fb08ea7d-00-2o8rr8b5jwou.spock.replit.dev/chat", {
+    const response = await fetch("https://YOUR-REPLIT-URL/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: messageLog })
@@ -55,6 +67,7 @@ async function getBotReply() {
     messageLog.push({ role: "assistant", content: botReply });
     appendMessage("bot", botReply);
 
+    // 🔥 Build metadata & save to Firebase
     const metadata = {
       session_id: sessionId,
       user_id: userId,
@@ -64,7 +77,7 @@ async function getBotReply() {
       topics: extractTopics(messageLog),
       messages: messageLog
     };
-    logSessionDataToFirebase(metadata);
+    await logSessionDataToFirebase(metadata);
 
   } catch (error) {
     console.error("Chatbot error:", error);
@@ -79,4 +92,14 @@ function extractTopics(log) {
   if (text.includes("integral")) topics.push("Integrals");
   if (text.includes("limit")) topics.push("Limits");
   return topics;
+}
+
+// ✅ Save session to Firebase
+async function logSessionDataToFirebase(metadata) {
+  try {
+    await db.collection("chat_sessions").add(metadata);
+    console.log("✅ Session metadata logged to Firebase:", metadata);
+  } catch (err) {
+    console.error("❌ Error logging session to Firebase:", err);
+  }
 }
