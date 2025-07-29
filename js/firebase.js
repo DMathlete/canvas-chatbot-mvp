@@ -1,22 +1,25 @@
-// Firebase config
+// Firebase Initialization (Compat SDK)
 const firebaseConfig = {
-  apiKey: "AIzaSyC-UCogQItaHwhqyq7q68a9GOoNreinYHE",
-  authDomain: "canvaschatbot.firebaseapp.com",
-  projectId: "canvaschatbot",
-  storageBucket: "canvaschatbot.firebasestorage.app",
-  messagingSenderId: "93513233362",
-  appId: "1:93513233362:web:874453254d707bde224e0b",
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
+  projectId: "YOUR_FIREBASE_PROJECT",
+  storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+// Ensure we don't re-initialize Firebase
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 const db = firebase.firestore();
 
+// ✅ Log metadata function
 async function logSessionDataToFirebase(metadata) {
   try {
     await db.collection("chat_sessions").add(metadata);
-    console.log("Session metadata logged to Firebase.");
-  } catch (error) {
-    console.error("Error logging session:", error);
+    console.log("✅ Session metadata logged to Firebase:", metadata);
+  } catch (err) {
+    console.error("❌ Error logging session to Firebase:", err);
   }
 }
