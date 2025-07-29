@@ -59,12 +59,14 @@ async function getBotReply() {
     const metadata = {
       session_id: sessionId,
       user_id: userId,
-      message_count: messageLog.length,
+      user_message_count: messageLog.filter(m => m.role === "user").length, // ✅ Only count user messages
+      total_message_count: messageLog.length, // Optional: Keep total count if needed
       start_time: startTime.toISOString(),
       end_time: new Date().toISOString(),
       topics: extractTopics(messageLog),
       messages: messageLog
     };
+
 
     // ✅ Log or update session in Firebase
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
