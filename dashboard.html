@@ -1,98 +1,79 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Chatbot Session Dashboard</title>
+  <title>Chat Sessions Dashboard</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    h2 { color: #333; }
     table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background: #f5f5f5; }
-    input { padding: 6px; margin-bottom: 10px; width: 250px; }
-    .message-log { background: #f9f9f9; padding: 10px; margin-top: 10px; border: 1px solid #ccc; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #333; color: white; }
+    tr:hover { background-color: #f1f1f1; }
+    button { margin-top: 10px; padding: 8px 12px; }
   </style>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
 </head>
 <body>
-  <h2>📊 Chatbot Session Dashboard</h2>
-  <input type="text" id="searchInput" placeholder="Search by User ID or Session ID..." onkeyup="filterSessions()">
-  <table id="sessionTable">
+  <h2>Chat Sessions Dashboard</h2>
+  <table id="sessionsTable">
     <thead>
       <tr>
         <th>Session ID</th>
         <th>User ID</th>
-        <th>Messages</th>
-        <th>Topics</th>
         <th>Start Time</th>
-        <th>End Time</th>
-        <th>View Log</th>
+        <th>Message Count</th>
+        <th>Topics</th>
       </tr>
     </thead>
-    <tbody id="sessionBody"></tbody>
+    <tbody></tbody>
   </table>
+  <button onclick="downloadCSV()">Download CSV</button>
 
-  <div id="logContainer" class="message-log" style="display:none;"></div>
-
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script>
-    // --- Firebase Config ---
+    // Firebase Config (same as chatbot)
     const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
-      projectId: "YOUR_FIREBASE_PROJECT",
-      storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyC-UCogQItaHwhqyq7q68a9GOoNreinYHE",
+      authDomain: "canvaschatbot.firebaseapp.com",
+      projectId: "canvaschatbot",
+      storageBucket: "canvaschatbot.appspot.com",
+      messagingSenderId: "93513233362",
+      appId: "1:93513233362:web:874453254d707bde224e0b"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    const sessionBody = document.getElementById("sessionBody");
-    const logContainer = document.getElementById("logContainer");
-
-    // Fetch sessions from Firestore
-    async function loadSessions() {
-      const snapshot = await db.collection("chat_sessions").orderBy("start_time", "desc").get();
-      sessionBody.innerHTML = "";
+    // Load sessions
+    db.collection("chat_sessions").get().then(snapshot => {
+      const tableBody = document.querySelector("#sessionsTable tbody");
       snapshot.forEach(doc => {
         const data = doc.data();
-        const row = `
-          <tr>
-            <td>${data.session_id}</td>
-            <td>${data.user_id}</td>
-            <td>${data.message_count}</td>
-            <td>${data.topics.join(", ")}</td>
-            <td>${new Date(data.start_time).toLocaleString()}</td>
-            <td>${new Date(data.end_time).toLocaleString()}</td>
-            <td><button onclick="viewLog(${JSON.stringify(data.messages).replace(/"/g, '&quot;')})">View</button></td>
-          </tr>
-        `;
-        sessionBody.innerHTML += row;
+        const row = `<tr>
+          <td>${data.session_id}</td>
+          <td>${data.user_id}</td>
+          <td>${new Date(data.start_time).toLocaleString()}</td>
+          <td>${data.message_count}</td>
+          <td>${(data.topics || []).join(", ")}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
       });
-    }
+    });
 
-    // View message log
-    function viewLog(messages) {
-      logContainer.style.display = "block";
-      logContainer.innerHTML = "<h3>Conversation Log</h3>";
-      messages.forEach(m => {
-        const role = m.role === "user" ? "👤 User" : m.role === "assistant" ? "🤖 Bot" : "⚙️ System";
-        logContainer.innerHTML += `<p><strong>${role}:</strong> ${m.content}</p>`;
+    // Download CSV
+    function downloadCSV() {
+      let csv = "Session ID,User ID,Start Time,Message Count,Topics\n";
+      const rows = document.querySelectorAll("#sessionsTable tbody tr");
+      rows.forEach(row => {
+        const cols = row.querySelectorAll("td");
+        const values = Array.from(cols).map(td => `"${td.innerText}"`);
+        csv += values.join(",") + "\n";
       });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "chat_sessions.csv";
+      a.click();
     }
-
-    // Filter by User ID or Session ID
-    function filterSessions() {
-      const filter = document.getElementById("searchInput").value.toLowerCase();
-      const rows = sessionBody.getElementsByTagName("tr");
-      for (let row of rows) {
-        row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
-      }
-    }
-
-    loadSessions();
   </script>
 </body>
 </html>
