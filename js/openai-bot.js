@@ -21,6 +21,14 @@ function sendMessage() {
   getBotReply();
 }
 
+// ✅ Add this event listener after your sendMessage() function:
+document.getElementById("userInput").addEventListener("keypress", function (event) {
+  if (event.key === "Enter") {
+    event.preventDefault(); // Prevents accidental newline behavior
+    sendMessage(); // Calls your existing function
+  }
+});
+
 function appendMessage(role, text) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
