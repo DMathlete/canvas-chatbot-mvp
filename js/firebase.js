@@ -6,7 +6,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyC-UCogQItaHwhqyq7q68a9GOoNreinYHE",
   authDomain: "canvaschatbot.firebaseapp.com",
   projectId: "canvaschatbot",
-  storageBucket: "canvaschatbot.appspot.com", // ✅ FIXED: Use .appspot.com not .firebasestorage.app
+  storageBucket: "canvaschatbot.firebasestorage.app", // ✅ FIXED: Use .appspot.com not .firebasestorage.app
   messagingSenderId: "93513233362",
   appId: "1:93513233362:web:874453254d707bde224e0b",
   measurementId: "G-25MQFFB2V9"
