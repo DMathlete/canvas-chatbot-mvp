@@ -1,17 +1,22 @@
-// Firebase Initialization (Compat SDK)
+// Import Firebase SDKs (Compat for easier integration with your existing code)
+// Use these instead of modular imports to avoid breaking the current openai-bot.js
+
+// Firebase configuration (copied from your Firebase console)
 const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_FIREBASE_PROJECT.firebaseapp.com",
-  projectId: "YOUR_FIREBASE_PROJECT",
-  storageBucket: "YOUR_FIREBASE_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyC-UCogQItaHwhqyq7q68a9GOoNreinYHE",
+  authDomain: "canvaschatbot.firebaseapp.com",
+  projectId: "canvaschatbot",
+  storageBucket: "canvaschatbot.appspot.com", // ✅ FIXED: Use .appspot.com not .firebasestorage.app
+  messagingSenderId: "93513233362",
+  appId: "1:93513233362:web:874453254d707bde224e0b",
+  measurementId: "G-25MQFFB2V9"
 };
 
-// Ensure we don't re-initialize Firebase
+// ✅ Initialize Firebase if not already initialized
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
+
 const db = firebase.firestore();
 
 // ✅ Log metadata function
