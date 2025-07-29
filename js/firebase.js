@@ -17,14 +17,15 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
-const db = firebase.firestore();
-
-// ✅ Log metadata function
 async function logSessionDataToFirebase(metadata) {
   try {
-    await db.collection("chat_sessions").add(metadata);
-    console.log("✅ Session metadata logged to Firebase:", metadata);
+    const sessionRef = db.collection("chat_sessions").doc(metadata.session_id);
+
+    await sessionRef.set(metadata, { merge: true }); // 🔥 merge updates existing fields
+    console.log("✅ Session metadata updated in Firebase:", metadata);
+
   } catch (err) {
     console.error("❌ Error logging session to Firebase:", err);
   }
 }
+
