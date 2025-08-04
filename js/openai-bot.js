@@ -21,11 +21,11 @@ function sendMessage() {
   getBotReply();
 }
 
-// ✅ Add this event listener after your sendMessage() function:
-document.getElementById("userInput").addEventListener("keypress", function (event) {
-  if (event.key === "Enter") {
-    event.preventDefault(); // Prevents accidental newline behavior
-    sendMessage(); // Calls your existing function
+// ✅ Add Enter-to-Send & Shift+Enter for newline
+document.getElementById("userInput").addEventListener("keydown", function (event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault(); // Send message on Enter
+    sendMessage();
   }
 });
 
@@ -33,16 +33,37 @@ function appendMessage(role, text) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg " + role;
-  msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + text;
+
+  // ✅ Auto-format math in the message before displaying
+  const processedText = autoFormatMath(text);
+
+  msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + processedText;
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // ✅ Re-render MathJax for new content
+  // ✅ Render LaTeX using MathJax
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
 }
 
+// ✅ Helper: Auto-wrap math-like content in LaTeX delimiters
+function autoFormatMath(text) {
+  // Detect LaTeX commands or math-like patterns
+  const mathCommands = /\\[a-zA-Z]+/; // e.g., \int, \frac
+  const exponentPattern = /\b[a-zA-Z0-9]+\^[a-zA-Z0-9]+\b/; // e.g., x^2
+  const fractionPattern = /\b\d+\/\d+\b/; // e.g., 1/2
+
+  // If text already has delimiters, return as is
+  if (text.includes("\\(") || text.includes("$$")) return text;
+
+  // If any math pattern detected, wrap it
+  if (mathCommands.test(text) || exponentPattern.test(text) || fractionPattern.test(text)) {
+    return `\\(${text}\\)`; // Inline math
+  }
+
+  return text; // No math detected
+}
 
 async function getBotReply() {
   try {
@@ -73,14 +94,13 @@ async function getBotReply() {
     const metadata = {
       session_id: sessionId,
       user_id: userId,
-      user_message_count: messageLog.filter(m => m.role === "user").length, // ✅ Only count user messages
-      total_message_count: messageLog.length, // Optional: Keep total count if needed
+      user_message_count: messageLog.filter(m => m.role === "user").length, // Only count student messages
+      total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
       end_time: new Date().toISOString(),
       topics: extractTopics(messageLog),
       messages: messageLog
     };
-
 
     // ✅ Log or update session in Firebase
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
