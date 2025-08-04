@@ -18,7 +18,7 @@
       <tr>
         <th>Session ID</th>
         <th>User ID</th>
-        <th>User Name</th> <!-- ✅ Added column -->
+        <th>User Name</th>
         <th>Start Time</th>
         <th>Message Count</th>
         <th>Topics</th>
@@ -28,11 +28,10 @@
   </table>
   <button onclick="downloadCSV()">Download CSV</button>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script>
-    // ✅ Firebase Config (same as chatbot)
+    // Firebase Config (same as chatbot)
     const firebaseConfig = {
       apiKey: "AIzaSyC-UCogQItaHwhqyq7q68a9GOoNreinYHE",
       authDomain: "canvaschatbot.firebaseapp.com",
@@ -44,16 +43,16 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // ✅ Load sessions from Firestore
+    // Load sessions from Firestore
     db.collection("chat_sessions").get().then(snapshot => {
       const tableBody = document.querySelector("#sessionsTable tbody");
       snapshot.forEach(doc => {
         const data = doc.data();
         const row = `<tr>
-          <td>${data.session_id || "N/A"}</td>
+          <td>${data.session_id || ""}</td>
           <td>${data.user_id || "N/A"}</td>
-          <td>${data.user_name || "N/A"}</td> <!-- ✅ Display user_name -->
-          <td>${data.start_time ? new Date(data.start_time).toLocaleString() : "N/A"}</td>
+          <td>${data.user_name || "N/A"}</td>
+          <td>${new Date(data.start_time).toLocaleString()}</td>
           <td>${data.user_message_count || 0}</td>
           <td>${(data.topics || []).join(", ")}</td>
         </tr>`;
@@ -61,7 +60,7 @@
       });
     });
 
-    // ✅ Download CSV
+    // Download CSV
     function downloadCSV() {
       let csv = "Session ID,User ID,User Name,Start Time,Message Count,Topics\n";
       const rows = document.querySelectorAll("#sessionsTable tbody tr");
