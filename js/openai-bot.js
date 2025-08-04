@@ -7,40 +7,12 @@ let messageLog = [
 
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
-let user = { userId: "anonymous_user", userName: "Anonymous" }; // Default
 
-// ✅ User detection function
-async function detectUser() {
-  try {
-    // Attempt Canvas API (if embedded in Canvas)
-    const response = await fetch("/api/v1/users/self");
-    if (response.ok) {
-      const canvasUser = await response.json();
-      console.log("✅ Canvas API User Detected:", canvasUser);
-      return {
-        userId: canvasUser.id || "unknown_id",
-        userName: canvasUser.name || "Unknown User"
-      };
-    } else {
-      console.warn("⚠️ Canvas API failed, falling back to manual entry.");
-    }
-  } catch (err) {
-    console.warn("⚠️ Canvas API error:", err);
-  }
+// ✅ Single Prompt for User ID (also used for name)
+let userId = prompt("Enter your User ID:");
+let userName = userId; // Use the same as name
 
-  // ✅ Manual fallback prompts
-  const manualId = prompt("Enter your ID:") || "anonymous_user";
-  const manualName = prompt("Enter your Name:") || manualId;
-  console.log("✅ Manual User Info:", { manualId, manualName });
-
-  return { userId: manualId, userName: manualName };
-}
-
-// ✅ Run detection immediately
-(async () => {
-  user = await detectUser();
-  console.log("✅ Final User Info:", user);
-})();
+console.log("✅ Final User Info:", { userId, userName });
 
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
@@ -70,7 +42,7 @@ function appendMessage(role, text) {
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // ✅ Render MathJax for LaTeX
+  // ✅ Re-render MathJax for LaTeX
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
@@ -104,8 +76,8 @@ async function getBotReply() {
     // 🔥 Build metadata for Firebase
     const metadata = {
       session_id: sessionId,
-      user_id: user.userId,
-      user_name: user.userName,
+      user_id: userId,
+      user_name: userName, // ✅ Now auto-filled same as ID
       user_message_count: messageLog.filter(m => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
