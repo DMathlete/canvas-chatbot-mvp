@@ -9,19 +9,9 @@ let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
 
 // ✅ Read user info from URL parameters if available
-// ✅ Detect Canvas user from query string or fallback
 const urlParams = new URLSearchParams(window.location.search);
-let userId = urlParams.get("user_id");
-let userName = urlParams.get("user_name");
-
-// If embedded in Canvas, these params should exist.
-// If missing (not Canvas), prompt manually:
-if (!userId) {
-  userId = prompt("Enter your name or ID:") || "anonymous_user";
-}
-if (!userName) {
-  userName = userId; // Default to ID if name not available
-}
+let userId = urlParams.get("user_id") || "anonymous_user";
+let userName = urlParams.get("user_name") || null;
 
 console.log("✅ User detected:", { userId, userName });
 
