@@ -7,8 +7,16 @@ let messageLog = [
 
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
-let userId = window.ENV?.current_user?.login_id || window.ENV?.current_user?.id || "anonymous_user";
-// let userId = prompt("Enter your name or ID:"); 
+
+// ✅ Automatically detect Canvas user ID or fallback to prompt
+let userId = "anonymous_user";
+if (window.ENV?.current_user) {
+  userId = window.ENV.current_user.login_id || window.ENV.current_user.id || "anonymous_user";
+  console.log("✅ Canvas User Detected:", userId);
+} else {
+  userId = prompt("Enter your name or ID:");
+  console.log("⚠️ Not in Canvas. Using prompted ID:", userId);
+}
 
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
@@ -22,10 +30,10 @@ function sendMessage() {
   getBotReply();
 }
 
-// ✅ Add Enter-to-Send & Shift+Enter for newline
-document.getElementById("userInput").addEventListener("keydown", function (event) {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault(); // Send message on Enter
+// ✅ Allow pressing "Enter" to send
+document.getElementById("userInput").addEventListener("keypress", function (event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
     sendMessage();
   }
 });
@@ -34,36 +42,14 @@ function appendMessage(role, text) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg " + role;
-
-  // ✅ Auto-format math in the message before displaying
-  const processedText = autoFormatMath(text);
-
-  msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + processedText;
+  msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + text;
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // ✅ Render LaTeX using MathJax
+  // ✅ Re-render MathJax for LaTeX
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
-}
-
-// ✅ Helper: Auto-wrap math-like content in LaTeX delimiters
-function autoFormatMath(text) {
-  // Detect LaTeX commands or math-like patterns
-  const mathCommands = /\\[a-zA-Z]+/; // e.g., \int, \frac
-  const exponentPattern = /\b[a-zA-Z0-9]+\^[a-zA-Z0-9]+\b/; // e.g., x^2
-  const fractionPattern = /\b\d+\/\d+\b/; // e.g., 1/2
-
-  // If text already has delimiters, return as is
-  if (text.includes("\\(") || text.includes("$$")) return text;
-
-  // If any math pattern detected, wrap it
-  if (mathCommands.test(text) || exponentPattern.test(text) || fractionPattern.test(text)) {
-    return `\\(${text}\\)`; // Inline math
-  }
-
-  return text; // No math detected
 }
 
 async function getBotReply() {
@@ -95,7 +81,7 @@ async function getBotReply() {
     const metadata = {
       session_id: sessionId,
       user_id: userId,
-      user_message_count: messageLog.filter(m => m.role === "user").length, // Only count student messages
+      user_message_count: messageLog.filter(m => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
       end_time: new Date().toISOString(),
@@ -103,7 +89,7 @@ async function getBotReply() {
       messages: messageLog
     };
 
-    // ✅ Log or update session in Firebase
+    // ✅ Log session metadata in Firestore
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
     console.log("✅ Session metadata updated in Firebase:", metadata);
 
