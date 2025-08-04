@@ -33,10 +33,16 @@ function appendMessage(role, text) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg " + role;
-  msgDiv.textContent = (role === "user" ? "You: " : "Tutor: ") + text;
+  msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + text;
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
+
+  // ✅ Re-render MathJax for new content
+  if (window.MathJax) {
+    MathJax.typesetPromise([msgDiv]);
+  }
 }
+
 
 async function getBotReply() {
   try {
