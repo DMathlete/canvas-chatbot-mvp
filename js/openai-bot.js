@@ -7,14 +7,45 @@ let messageLog = [
 
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
+let userId = "anonymous";
+let userName = "anonymous";
 
-// ✅ Read user info from URL parameters if available
-const urlParams = new URLSearchParams(window.location.search);
-let userId = urlParams.get("user_id") || "anonymous_user";
-let userName = urlParams.get("user_name") || null;
+/** ✅ Detect Canvas user automatically **/
+async function getCanvasUser() {
+  try {
+    const response = await fetch("/api/v1/users/self", { credentials: "include" });
+    if (!response.ok) throw new Error("Canvas API request failed");
+    const userData = await response.json();
+    console.log("✅ Canvas user detected:", userData);
+    return {
+      userId: userData.id,
+      userName: userData.name
+    };
+  } catch (err) {
+    console.warn("⚠️ Canvas API request failed, using manual entry.");
+    return {
+      userId: prompt("Enter your ID:"),
+      userName: prompt("Enter your name:")
+    };
+  }
+}
 
-console.log("✅ User detected:", { userId, userName });
+// ✅ Initialize user detection
+window.addEventListener("load", async () => {
+  if (window.self !== window.top) {
+    // Running inside Canvas iframe
+    const user = await getCanvasUser();
+    userId = user.userId;
+    userName = user.userName;
+  } else {
+    // Not inside Canvas
+    userId = prompt("Enter your ID:");
+    userName = prompt("Enter your name:");
+  }
+  console.log("✅ Final User Info:", { userId, userName });
+});
 
+/** ✅ Send a message **/
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
   const userText = inputBox.value.trim();
@@ -27,7 +58,7 @@ function sendMessage() {
   getBotReply();
 }
 
-// ✅ Allow pressing "Enter" to send
+/** ✅ Allow Enter-to-send **/
 document.getElementById("userInput").addEventListener("keypress", function (event) {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -35,6 +66,7 @@ document.getElementById("userInput").addEventListener("keypress", function (even
   }
 });
 
+/** ✅ Append message and render LaTeX **/
 function appendMessage(role, text) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
@@ -43,12 +75,13 @@ function appendMessage(role, text) {
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // ✅ Re-render MathJax for LaTeX
+  // Re-render MathJax for LaTeX
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
 }
 
+/** ✅ Fetch GPT reply and log session **/
 async function getBotReply() {
   try {
     const response = await fetch("https://chatbot-proxy-jsustaita02.replit.app/chat", {
@@ -74,11 +107,11 @@ async function getBotReply() {
     messageLog.push({ role: "assistant", content: botReply });
     appendMessage("bot", botReply);
 
-    // 🔥 Build metadata for Firebase
+    // ✅ Build metadata for Firebase
     const metadata = {
       session_id: sessionId,
-      user_id: userId || "anonymous_user",
-      user_name: userName || "",
+      user_id: userId,
+      user_name: userName,
       user_message_count: messageLog.filter(m => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
@@ -87,8 +120,7 @@ async function getBotReply() {
       messages: messageLog
     };
 
-
-    // ✅ Log session metadata in Firestore
+    // ✅ Log to Firestore
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
     console.log("✅ Session metadata updated in Firebase:", metadata);
 
@@ -98,6 +130,7 @@ async function getBotReply() {
   }
 }
 
+/** ✅ Extract topics **/
 function extractTopics(log) {
   const text = log.map(m => m.content.toLowerCase()).join(" ");
   const topics = [];
