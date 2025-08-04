@@ -7,7 +7,8 @@ let messageLog = [
 
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
-let userId = prompt("Enter your name or ID:");
+let userId = window.ENV?.current_user?.login_id || window.ENV?.current_user?.id || "anonymous_user";
+// let userId = prompt("Enter your name or ID:"); 
 
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
