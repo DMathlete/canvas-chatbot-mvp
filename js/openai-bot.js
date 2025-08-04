@@ -10,13 +10,23 @@ let startTime = new Date();
 
 // ✅ Automatically detect Canvas user ID or fallback to prompt
 let userId = "anonymous_user";
-if (window.ENV?.current_user) {
-  userId = window.ENV.current_user.login_id || window.ENV.current_user.id || "anonymous_user";
-  console.log("✅ Canvas User Detected:", userId);
-} else {
-  userId = prompt("Enter your name or ID:");
-  console.log("⚠️ Not in Canvas. Using prompted ID:", userId);
-}
+
+// ✅ Listen for Canvas user info via postMessage
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "canvasUser") {
+    userId = event.data.data.login_id || event.data.data.id || "anonymous_user";
+    console.log("✅ Canvas User Detected via postMessage:", userId);
+  }
+});
+
+// ✅ Fallback to prompt if no Canvas user detected within 1 second
+setTimeout(() => {
+  if (userId === "anonymous_user") {
+    userId = prompt("Enter your name or ID:");
+    console.log("⚠️ Not in Canvas or no user info received. Using prompted ID:", userId);
+  }
+}, 1000);
+
 
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
