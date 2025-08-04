@@ -7,26 +7,40 @@ let messageLog = [
 
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
+let user = { userId: "anonymous_user", userName: "Anonymous" }; // Default
 
-// ✅ Read user info from URL parameters first
-const urlParams = new URLSearchParams(window.location.search);
-let userId = urlParams.get("user_id");
-let userName = urlParams.get("user_name");
-
-// ✅ Single fallback prompt if missing
-if (!userId || !userName) {
-  const combinedPrompt = prompt("Enter your ID and name (format: ID, Name):");
-  if (combinedPrompt) {
-    const parts = combinedPrompt.split(",");
-    userId = parts[0]?.trim() || "anonymous_user";
-    userName = parts[1]?.trim() || "Anonymous";
-  } else {
-    userId = "anonymous_user";
-    userName = "Anonymous";
+// ✅ User detection function
+async function detectUser() {
+  try {
+    // Attempt Canvas API (if embedded in Canvas)
+    const response = await fetch("/api/v1/users/self");
+    if (response.ok) {
+      const canvasUser = await response.json();
+      console.log("✅ Canvas API User Detected:", canvasUser);
+      return {
+        userId: canvasUser.id || "unknown_id",
+        userName: canvasUser.name || "Unknown User"
+      };
+    } else {
+      console.warn("⚠️ Canvas API failed, falling back to manual entry.");
+    }
+  } catch (err) {
+    console.warn("⚠️ Canvas API error:", err);
   }
+
+  // ✅ Manual fallback prompts
+  const manualId = prompt("Enter your ID:") || "anonymous_user";
+  const manualName = prompt("Enter your Name:") || manualId;
+  console.log("✅ Manual User Info:", { manualId, manualName });
+
+  return { userId: manualId, userName: manualName };
 }
 
-console.log("✅ Final User Info:", { userId, userName });
+// ✅ Run detection immediately
+(async () => {
+  user = await detectUser();
+  console.log("✅ Final User Info:", user);
+})();
 
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
@@ -56,7 +70,7 @@ function appendMessage(role, text) {
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // ✅ Re-render MathJax for LaTeX
+  // ✅ Render MathJax for LaTeX
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
@@ -90,8 +104,8 @@ async function getBotReply() {
     // 🔥 Build metadata for Firebase
     const metadata = {
       session_id: sessionId,
-      user_id: userId,
-      user_name: userName,
+      user_id: user.userId,
+      user_name: user.userName,
       user_message_count: messageLog.filter(m => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
