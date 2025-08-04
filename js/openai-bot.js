@@ -8,24 +8,18 @@ let messageLog = [
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
 
-// ✅ Automatically detect Canvas user ID or fallback to prompt
-let userId = "anonymous_user";
+// ✅ Read user info from URL parameters if available
+const urlParams = new URLSearchParams(window.location.search);
+let userId = urlParams.get("user_id") || "anonymous_user";
+let userName = urlParams.get("user_name") || null;
 
-// ✅ Listen for Canvas user info via postMessage
-window.addEventListener("message", (event) => {
-  if (event.data?.type === "canvasUser") {
-    userId = event.data.data.login_id || event.data.data.id || "anonymous_user";
-    console.log("✅ Canvas User Detected via postMessage:", userId);
-  }
-});
+if (userId === "anonymous_user") {
+  // Fallback prompt if not embedded in Canvas
+  userId = prompt("Enter your name or ID:");
+}
 
-// ✅ Fallback to prompt if no Canvas user detected within 1 second
-setTimeout(() => {
-  if (userId === "anonymous_user") {
-    userId = prompt("Enter your name or ID:");
-    console.log("⚠️ Not in Canvas or no user info received. Using prompted ID:", userId);
-  }
-}, 1000);
+console.log("✅ User ID Detected:", userId, userName);
+
 
 
 function sendMessage() {
