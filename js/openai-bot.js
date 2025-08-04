@@ -87,7 +87,8 @@ async function getBotReply() {
     // 🔥 Build metadata for Firebase
     const metadata = {
       session_id: sessionId,
-      user_id: userId,
+      user_id: userId || "anonymous_user",
+      user_name: userName || "",
       user_message_count: messageLog.filter(m => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
@@ -95,6 +96,7 @@ async function getBotReply() {
       topics: extractTopics(messageLog),
       messages: messageLog
     };
+
 
     // ✅ Log session metadata in Firestore
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
