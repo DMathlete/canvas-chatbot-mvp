@@ -1,19 +1,17 @@
 let messageLog = [
   {
     role: "system",
-    content: "You are a helpful calculus and linear algebra tutor. Provide answers in a way an undergraduate student seeing concepts for the first time can comprehend. Always encourage the student to explain their thinking. Ask guiding questions with a focus on understanding and strategy."
+    content: "You are a helpful calculus tutor. Always encourage the student to explain their thinking. Ask guiding questions. Don’t give the full answer immediately. Focus on understanding and strategy."
   }
 ];
 
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
+let userId = prompt("Enter your ID:"); // Single prompt only
 
-// ✅ Single Prompt for User ID (also used for name)
-let userId = prompt("Enter your User ID:");
-let userName = userId; // Use the same as name
+console.log("✅ User ID Detected:", userId);
 
-console.log("✅ Final User Info:", { userId, userName });
-
+// Handle Send Message
 function sendMessage() {
   const inputBox = document.getElementById("userInput");
   const userText = inputBox.value.trim();
@@ -26,7 +24,7 @@ function sendMessage() {
   getBotReply();
 }
 
-// ✅ Allow pressing "Enter" to send
+// Allow pressing "Enter" to send
 document.getElementById("userInput").addEventListener("keypress", function (event) {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -34,20 +32,37 @@ document.getElementById("userInput").addEventListener("keypress", function (even
   }
 });
 
+// Append messages with LaTeX rendering
 function appendMessage(role, text) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
-  msgDiv.className = "msg " + role;
+  msgDiv.className = "msg " + (role === "user" ? "user" : "bot");
   msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + text;
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // ✅ Re-render MathJax for LaTeX
-  if (window.MathJax) {
-    MathJax.typesetPromise([msgDiv]);
-  }
+  if (window.MathJax) MathJax.typesetPromise([msgDiv]);
 }
 
+// Handle File Upload
+document.getElementById("fileUpload").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    const fileURL = await uploadFileToFirebase(file);
+    appendMessage("user", `📎 Uploaded file: <a href="${fileURL}" target="_blank">${file.name}</a>`);
+    messageLog.push({ role: "user", content: `File uploaded: ${fileURL}` });
+    getBotReply();
+  }
+});
+
+// Upload File to Firebase Storage
+async function uploadFileToFirebase(file) {
+  const storageRef = firebase.storage().ref(`uploads/${sessionId}/${file.name}`);
+  await storageRef.put(file);
+  return await storageRef.getDownloadURL();
+}
+
+// Get Bot Reply & Log Session
 async function getBotReply() {
   try {
     const response = await fetch("https://chatbot-proxy-jsustaita02.replit.app/chat", {
@@ -63,32 +78,24 @@ async function getBotReply() {
     }
 
     const data = await response.json();
-    if (!data.choices || !data.choices[0]) {
-      appendMessage("bot", "⚠️ Error: Invalid response from tutor bot.");
-      console.error("Unexpected API response:", data);
-      return;
-    }
-
     const botReply = data.choices[0].message.content;
     messageLog.push({ role: "assistant", content: botReply });
     appendMessage("bot", botReply);
 
-    // 🔥 Build metadata for Firebase
+    // Log to Firestore
     const metadata = {
       session_id: sessionId,
       user_id: userId,
-      user_name: userName, // ✅ Now auto-filled same as ID
       user_message_count: messageLog.filter(m => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
       end_time: new Date().toISOString(),
       topics: extractTopics(messageLog),
-      messages: messageLog
+      messages: messageLog,
     };
 
-    // ✅ Log session metadata in Firestore
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
-    console.log("✅ Session metadata updated in Firebase:", metadata);
+    console.log("✅ Session metadata updated:", metadata);
 
   } catch (error) {
     console.error("Chatbot error:", error);
