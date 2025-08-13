@@ -10,7 +10,7 @@ const BOT_PROXY_URL   = 'https://chatbot-proxy-jsustaita02.replit.app/chat';   /
 let messageLog = [
   {
     role: "system",
-    content: "You are a helpful calculus tutor. Always encourage the student to explain their thinking. Ask guiding questions. Don’t give the full answer immediately. Focus on understanding and strategy."
+    content: "You are a helpful multivariable calculus and linear algebra tutor. Always encourage the student to explain their thinking by asking guiding questions and focus on understanding and strategy."
   }
 ];
 
@@ -206,6 +206,10 @@ function extractTopics(log) {
   if (text.includes("integral")) topics.push("Integrals");
   if (text.includes("limit")) topics.push("Limits");
   if (text.includes("vector")) topics.push("Vectors");
+  if (text.includes("theorem")) topics.push("Theorem");
+  if (text.includes("dot product")) topics.push("Dot Product");
+  if (text.includes("cross product")) topics.push("Cross Product");
+  if (text.includes("plane")) topics.push("Planes");
   return topics;
 }
 
