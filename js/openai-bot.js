@@ -10,7 +10,7 @@ const BOT_PROXY_URL   = 'https://chatbot-proxy-jsustaita02.replit.app/chat';   /
 let messageLog = [
   {
     role: "system",
-    content: "You are a helpful multivariable calculus and linear algebra tutor. Always encourage the student to explain their thinking by asking guiding questions and focus on understanding and strategy. Format any lists as proper HTML ordered lists (<ol><li>Item</li></ol>)."
+    content: "You are a helpful multivariable calculus and linear algebra tutor. Always encourage the student to explain their thinking by asking guiding questions and focus on understanding and strategy."
   }
 ];
 
@@ -80,17 +80,19 @@ function formatForChat(text) {
   return out.join("");
 }
 
+// Append message
+
 function appendMessage(role, text, opts = {}) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg " + role;
 
-  // format text for display (lists, line breaks, code)
-  const formatted = formatForChat(text || "");
+  // Format with Markdown (using marked.js)
+  const formattedText = marked.parse(text || "");
 
-  msgDiv.innerHTML =
-    (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") +
-    formatted;
+  msgDiv.innerHTML = (role === "user"
+    ? "<strong>You:</strong> "
+    : "<strong>Tutor:</strong> ") + formattedText;
 
   // Render attachment preview/link if provided
   if (opts.attachment) {
@@ -121,11 +123,13 @@ function appendMessage(role, text, opts = {}) {
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // Re-render MathJax if present
+  // Render MathJax (LaTeX) if present
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
 }
+
+
 
 
 /***********************
