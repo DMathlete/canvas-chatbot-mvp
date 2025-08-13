@@ -10,7 +10,8 @@ const BOT_PROXY_URL   = 'https://chatbot-proxy-jsustaita02.replit.app/chat';   /
 let messageLog = [
   {
     role: "system",
-    content: "You are a helpful multivariable calculus and linear algebra tutor. Always encourage the student to explain their thinking by asking guiding questions and focus on understanding and strategy."
+    content:
+      "You are a helpful multivariable calculus and linear algebra tutor. Always encourage the student to explain their thinking by asking guiding questions and focus on understanding and strategy."
   }
 ];
 
@@ -27,72 +28,81 @@ if (!userId) {
 }
 console.log("✅ User Detected:", { userId, userName });
 
-// Format plain text / markdown-ish into HTML for chat
-function formatForChat(text) {
-  if (!text) return "";
-
-  // 1) Escape HTML
-  let esc = text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-
-  // 2) Code fences ```...```
-  esc = esc.replace(/```([\s\S]*?)```/g, (_, code) => {
-    const html = code.replace(/\n/g, "<br>");
-    return `<pre style="white-space:pre-wrap;"><code>${html}</code></pre>`;
+/***********************
+ *  MARKDOWN + MATHJAX
+ ***********************/
+/** Configure marked for nice lists + line breaks */
+if (window.marked) {
+  marked.setOptions({
+    gfm: true,
+    breaks: true,
+    mangle: false,
+    headerIds: false
   });
-
-  // 3) Lists (ordered & unordered)
-  const lines = esc.split(/\n/);
-  const out = [];
-  let i = 0;
-
-  const isBullet = (s) => /^\s*[-*+]\s+/.test(s);
-  const isNumber = (s) => /^\s*\d+[.)]\s+/.test(s);
-
-  while (i < lines.length) {
-    // Unordered list block
-    if (isBullet(lines[i])) {
-      out.push("<ul>");
-      while (i < lines.length && isBullet(lines[i])) {
-        out.push(`<li>${lines[i].replace(/^\s*[-*+]\s+/, "")}</li>`);
-        i++;
-      }
-      out.push("</ul>");
-      continue;
-    }
-    // Ordered list block
-    if (isNumber(lines[i])) {
-      out.push("<ol>");
-      while (i < lines.length && isNumber(lines[i])) {
-        out.push(`<li>${lines[i].replace(/^\s*\d+[.)]\s+/, "")}</li>`);
-        i++;
-      }
-      out.push("</ol>");
-      continue;
-    }
-    // Paragraph / line
-    out.push(lines[i] === "" ? "<br>" : `${lines[i]}<br>`);
-    i++;
-  }
-
-  return out.join("");
 }
 
-// Append message
+/**
+ * Protect math segments ($...$, $$...$$, \(...\), \[...\]) so the Markdown
+ * parser doesn’t mangle them. We replace them with tokens, then restore.
+ */
+function protectMath(text) {
+  const tokens = [];
+  let idx = 0;
 
+  // Order matters: handle display first, then inline
+  const patterns = [
+    { re: /\$\$([\s\S]+?)\$\$/g, wrap: (m) => ({ raw: m }) },
+    { re: /\\\[((?:.|\n)+?)\\\]/g, wrap: (m) => ({ raw: m }) },
+    // inline $...$ (avoid \$, and don't match $$...$$ which is already handled)
+    { re: /(?<!\\)\$([^\n][\s\S]*?)(?<!\\)\$/g, wrap: (m) => ({ raw: m }) },
+    { re: /\\\(([\s\S]+?)\\\)/g, wrap: (m) => ({ raw: m }) }
+  ];
+
+  let protectedText = text;
+
+  for (const { re, wrap } of patterns) {
+    protectedText = protectedText.replace(re, (match) => {
+      const key = `[[MATH${idx}]]`;
+      tokens.push(wrap(match));
+      idx++;
+      return key;
+    });
+  }
+
+  return { protectedText, tokens };
+}
+
+function restoreMath(html, tokens) {
+  let out = html;
+  tokens.forEach((tok, i) => {
+    const key = `[[MATH${i}]]`;
+    out = out.replace(key, tok.raw);
+  });
+  return out;
+}
+
+/** Render Markdown but preserve MathJax delimiters. */
+function renderMarkdownWithMath(text) {
+  if (!text) return "";
+  const { protectedText, tokens } = protectMath(text);
+  const mdHtml = window.marked ? marked.parse(protectedText) : protectedText;
+  return restoreMath(mdHtml, tokens);
+}
+
+/***********************
+ *  DOM HELPERS
+ ***********************/
 function appendMessage(role, text, opts = {}) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg " + role;
 
-  // Format with Markdown (using marked.js)
-  const formattedText = marked.parse(text || "");
+  // Markdown + MathJax pipeline
+  const formatted = renderMarkdownWithMath(text || "");
 
-  msgDiv.innerHTML = (role === "user"
-    ? "<strong>You:</strong> "
-    : "<strong>Tutor:</strong> ") + formattedText;
+  msgDiv.innerHTML =
+    (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") +
+    formatted;
 
   // Render attachment preview/link if provided
   if (opts.attachment) {
@@ -129,16 +139,13 @@ function appendMessage(role, text, opts = {}) {
   }
 }
 
-
-
-
 /***********************
  *  FILE UPLOAD HELPERS
  ***********************/
 async function getSignedUploadUrl(filename, contentType) {
   const u = new URL(`${FUNCTIONS_BASE}/getUploadUrl`);
-  u.searchParams.set('filename', filename);
-  u.searchParams.set('contentType', contentType || 'application/octet-stream');
+  u.searchParams.set("filename", filename);
+  u.searchParams.set("contentType", contentType || "application/octet-stream");
 
   const res = await fetch(u.toString());
   if (!res.ok) throw new Error(`getUploadUrl failed: ${await res.text()}`);
@@ -147,8 +154,8 @@ async function getSignedUploadUrl(filename, contentType) {
 
 async function uploadToSignedUrl(uploadUrl, file) {
   const res = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    method: "PUT",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
     body: file
   });
   if (!res.ok) throw new Error(`PUT upload failed: ${await res.text()}`);
@@ -156,7 +163,7 @@ async function uploadToSignedUrl(uploadUrl, file) {
 
 async function getSignedDownloadUrl(objectName) {
   const u = new URL(`${FUNCTIONS_BASE}/getDownloadUrl`);
-  u.searchParams.set('object', objectName);
+  u.searchParams.set("object", objectName);
 
   const res = await fetch(u.toString());
   if (!res.ok) throw new Error(`getDownloadUrl failed: ${await res.text()}`);
@@ -169,8 +176,9 @@ async function getSignedDownloadUrl(objectName) {
 async function sendMessage() {
   const inputBox = document.getElementById("userInput");
   const fileInput = document.getElementById("fileInput");
-  const userText  = (inputBox.value || "").trim();
-  const file      = (fileInput && fileInput.files && fileInput.files[0]) ? fileInput.files[0] : null;
+  const userText = (inputBox.value || "").trim();
+  const file =
+    fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
 
   if (!userText && !file) return;
 
@@ -183,7 +191,10 @@ async function sendMessage() {
       appendMessage("user", userText || "📎 Attaching a file...", {});
 
       // 1) get signed PUT URL
-      const { uploadUrl, objectName } = await getSignedUploadUrl(file.name, file.type);
+      const { uploadUrl, objectName } = await getSignedUploadUrl(
+        file.name,
+        file.type
+      );
 
       // 2) upload file
       await uploadToSignedUrl(uploadUrl, file);
@@ -196,11 +207,16 @@ async function sendMessage() {
 
       // Show preview/link in chat (as the user's message)
       const isImage = /^image\//i.test(file.type);
-      attachmentMeta = { url: downloadUrl, filename: file.name, kind: isImage ? "image" : "file" };
+      attachmentMeta = {
+        url: downloadUrl,
+        filename: file.name,
+        kind: isImage ? "image" : "file"
+      };
       appendMessage("user", userText, { attachment: attachmentMeta });
 
       // Add a note to send to the bot so it knows there's a file reference
-      textForBot = (userText ? userText + "\n\n" : "") + `Attached file: ${downloadUrl}`;
+      textForBot =
+        (userText ? userText + "\n\n" : "") + `Attached file: ${downloadUrl}`;
     } else {
       // No file, just text
       appendMessage("user", userText);
@@ -235,7 +251,6 @@ async function sendMessage() {
 
     // Log/update session in Firestore
     await logSession();
-
   } catch (err) {
     console.error("sendMessage error:", err);
     appendMessage("bot", "⚠️ Error: Could not process your request.");
@@ -259,7 +274,7 @@ document.getElementById("userInput").addEventListener("keypress", function (even
  *  TOPIC TAGGING
  ***********************/
 function extractTopics(log) {
-  const text = log.map(m => m.content.toLowerCase()).join(" ");
+  const text = log.map((m) => m.content.toLowerCase()).join(" ");
   const topics = [];
   if (text.includes("derivative")) topics.push("Derivatives");
   if (text.includes("integral")) topics.push("Integrals");
@@ -281,7 +296,7 @@ async function logSession() {
       session_id: sessionId,
       user_id: userId,
       user_name: userName || null,
-      user_message_count: messageLog.filter(m => m.role === "user").length,
+      user_message_count: messageLog.filter((m) => m.role === "user").length,
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
       end_time: new Date().toISOString(),
