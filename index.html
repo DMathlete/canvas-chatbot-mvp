@@ -2,38 +2,64 @@
 <html>
 <head>
   <title>Math Tutor Bot</title>
+  <meta charset="utf-8" />
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     #chat { border: 1px solid #ddd; padding: 10px; height: 400px; overflow-y: auto; margin-bottom: 10px; }
     .msg { margin: 5px 0; }
     .msg.user { text-align: left; color: blue; }
-    .msg.bot { text-align: left; color: green; }
+    .msg.bot  { text-align: left; color: green; }
+
     #controls { display: flex; gap: 10px; }
     #userInput { flex: 1; padding: 8px; font-size: 14px; }
-    #fileUpload { padding: 5px; }
+    #fileInput { padding: 5px; }
     button { padding: 8px 12px; }
+
+    /* nicer list spacing inside chat */
+    #chat ol { margin-left: 1.25rem; }
+    #chat li { margin: .25rem 0; }
   </style>
-  <!-- MathJax for LaTeX rendering -->
+
+  <!-- Polyfill (ok to leave) -->
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- MathJax configuration: enable both inline & display TeX delimiters -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$','$$'], ['\\[','\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <!-- MathJax (SVG output is fast & crisp) -->
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
+
 <body>
   <h2>Math Tutor Bot</h2>
+
   <div id="chat"></div>
 
   <div id="controls">
-    <input type="file" id="fileUpload" accept="image/*,.pdf,.docx" />
+    <!-- renamed to fileInput to match your JS -->
+    <input type="file" id="fileInput" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" />
     <input type="text" id="userInput" placeholder="Ask a question..." />
     <button onclick="sendMessage()">Send</button>
   </div>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+  <!-- Your Firebase init (creates global 'db') -->
   <script src="js/firebase.js"></script>
-  <script src="js/openai-bot.js"></script>
+
+  <!-- Markdown renderer (must be loaded before openai-bot.js) -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+  <!-- Your bot logic (uses marked + MathJax) -->
+  <script src="js/openai-bot.js"></script>
 </body>
 </html>
