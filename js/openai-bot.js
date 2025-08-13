@@ -27,16 +27,70 @@ if (!userId) {
 }
 console.log("✅ User Detected:", { userId, userName });
 
-/***********************
- *  DOM HELPERS
- ***********************/
+// Format plain text / markdown-ish into HTML for chat
+function formatForChat(text) {
+  if (!text) return "";
+
+  // 1) Escape HTML
+  let esc = text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+  // 2) Code fences ```...```
+  esc = esc.replace(/```([\s\S]*?)```/g, (_, code) => {
+    const html = code.replace(/\n/g, "<br>");
+    return `<pre style="white-space:pre-wrap;"><code>${html}</code></pre>`;
+  });
+
+  // 3) Lists (ordered & unordered)
+  const lines = esc.split(/\n/);
+  const out = [];
+  let i = 0;
+
+  const isBullet = (s) => /^\s*[-*+]\s+/.test(s);
+  const isNumber = (s) => /^\s*\d+[.)]\s+/.test(s);
+
+  while (i < lines.length) {
+    // Unordered list block
+    if (isBullet(lines[i])) {
+      out.push("<ul>");
+      while (i < lines.length && isBullet(lines[i])) {
+        out.push(`<li>${lines[i].replace(/^\s*[-*+]\s+/, "")}</li>`);
+        i++;
+      }
+      out.push("</ul>");
+      continue;
+    }
+    // Ordered list block
+    if (isNumber(lines[i])) {
+      out.push("<ol>");
+      while (i < lines.length && isNumber(lines[i])) {
+        out.push(`<li>${lines[i].replace(/^\s*\d+[.)]\s+/, "")}</li>`);
+        i++;
+      }
+      out.push("</ol>");
+      continue;
+    }
+    // Paragraph / line
+    out.push(lines[i] === "" ? "<br>" : `${lines[i]}<br>`);
+    i++;
+  }
+
+  return out.join("");
+}
+
 function appendMessage(role, text, opts = {}) {
   const chatBox = document.getElementById("chat");
   const msgDiv = document.createElement("div");
   msgDiv.className = "msg " + role;
 
-  // Main text
-  msgDiv.innerHTML = (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") + (text || "");
+  // format text for display (lists, line breaks, code)
+  const formatted = formatForChat(text || "");
+
+  msgDiv.innerHTML =
+    (role === "user" ? "<strong>You:</strong> " : "<strong>Tutor:</strong> ") +
+    formatted;
 
   // Render attachment preview/link if provided
   if (opts.attachment) {
@@ -67,11 +121,12 @@ function appendMessage(role, text, opts = {}) {
   chatBox.appendChild(msgDiv);
   chatBox.scrollTop = chatBox.scrollHeight;
 
-  // Render MathJax (LaTeX) if present
+  // Re-render MathJax if present
   if (window.MathJax) {
     MathJax.typesetPromise([msgDiv]);
   }
 }
+
 
 /***********************
  *  FILE UPLOAD HELPERS
