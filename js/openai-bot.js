@@ -19,13 +19,17 @@ let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
 
 // Prefer Canvas URL params if present, else ask once for an ID
-const urlParams = new URLSearchParams(window.location.search);
+/* const urlParams = new URLSearchParams(window.location.search);
 let userId = urlParams.get("user_id");
 let userName = urlParams.get("user_name");
 
 if (!userId) {
   userId = prompt("Enter your student ID (or initials):") || "anonymous_user";
 }
+*/
+
+let userId = prompt("Enter your C-number:") || "anonymous_user";
+let userName = null;
 console.log("✅ User Detected:", { userId, userName });
 
 /***********************
