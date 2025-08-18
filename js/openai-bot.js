@@ -19,17 +19,13 @@ let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
 
 // Prefer Canvas URL params if present, else ask once for an ID
-/* const urlParams = new URLSearchParams(window.location.search);
+const urlParams = new URLSearchParams(window.location.search);
 let userId = urlParams.get("user_id");
 let userName = urlParams.get("user_name");
 
 if (!userId) {
   userId = prompt("Enter your student ID (or initials):") || "anonymous_user";
 }
-*/
-
-let userId = prompt("Enter your C-number:") || "anonymous_user";
-let userName = null;
 console.log("✅ User Detected:", { userId, userName });
 
 /***********************
@@ -275,20 +271,173 @@ document.getElementById("userInput").addEventListener("keypress", function (even
 });
 
 /***********************
- *  TOPIC TAGGING
+ *  TOPIC TAGGING (Scalable; LA + Multivariable)
  ***********************/
+// Normalize once for robust matching (case/accents/quotes/dashes)
+function normalizeText(s) {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")       // smart quotes
+    .replace(/[–—]/g, "-");                            // em/en dashes → hyphen
+}
+
+/**
+ * Keyword dictionary: label -> array of keywords/phrases (include synonyms).
+ * Spaces in keywords are treated as [\s-]+ so “lagrange multipliers” matches
+ * “lagrange-multipliers” as well.
+ */
+const TOPIC_KEYWORDS = {
+  /* ---------------- LINEAR ALGEBRA ---------------- */
+  // tooling
+  "Python": ["python"],
+
+  // foundations
+  "Matrices": ["matrix", "matrices"],
+  "Vectors": ["vector", "vectors"],
+  "Scalar Multiplication": ["scalar multiplication"],
+  "Transpose": ["transpose", "transposition"],
+  "Identity Matrix": ["identity matrix", "identity"],
+  "Matrix Properties": ["matrix properties", "properties of matrices"],
+
+  // systems + reduction
+  "Systems of Equations": ["system of equations", "systems of equations", "linear system", "simultaneous equations"],
+  "Gram–Schmidt": ["gram schmidt", "gram-schmidt", "gram–schmidt"],
+  "Gaussian Elimination (REF)": ["gaussian elimination", "row echelon form", "ref", "row-echelon form"],
+  "Gauss–Jordan (RREF)": ["gauss jordan", "gauss-jordan", "gauss–jordan", "reduced row echelon form", "rref"],
+  "Row Reduction": ["row reduction", "row-reduction"],
+  "Pivots": ["pivot", "pivots"],
+  "Free Variables": ["free variable", "free variables"],
+  "Consistency": ["consistent system", "inconsistent system", "consistency"],
+  "Homogeneous Systems": ["homogeneous system", "homogeneous"],
+  "Parametric Form": ["parametric form"],
+
+  // determinants & inverses
+  "Determinant": ["determinant", "det a", "det(a)"],
+  "Cofactor Expansion": ["cofactor expansion", "laplace expansion"],
+  "Cramer's Rule": ["cramer's rule", "cramers rule"],
+  "Inverse Matrix": ["inverse matrix", "inverses", "invertible", "nonsingular"],
+  "Singular Matrix": ["singular matrix"],
+  "Inner Product": ["inner product"],
+  "Dot Product": ["dot product", "projection"],
+
+  // vector spaces & subspaces
+  "Vector Space": ["vector space"],
+  "Subspace": ["subspace"],
+  "Span": ["span"],
+  "Linear Independence": ["linear independence", "independence"],
+  "Basis": ["basis", "standard basis"],
+  "Dimension": ["dimension", "dim v", "dim(v)"],
+  "Column Space": ["column space", "col a", "col(a)"],
+  "Row Space": ["row space", "row(a)"],
+  "Null Space": ["null space", "kernel", "null(a)"],
+  "Rank & Nullity": ["rank", "nullity", "rank-nullity"],
+
+  // orthogonality & projections
+  "Orthogonal": ["orthogonal", "orthogonality"],
+  "Orthogonal Complement": ["orthogonal complement"],
+  "Orthonormal": ["orthonormal"],
+  "Projection": ["projection", "projection matrix", "orthogonal projection"],
+  "Least Squares": ["least squares", "normal equations"],
+
+  // eigen & diagonalization
+  "Eigenvalues": ["eigenvalue", "eigenvalues"],
+  "Eigenvectors": ["eigenvector", "eigenvectors"],
+  "Characteristic Polynomial": ["characteristic polynomial"],
+  "Diagonalization": ["diagonalization", "diagonalizable"],
+  "Defective Matrix": ["defective matrix"],
+  "Symmetric Matrix": ["symmetric matrix"],
+  "Orthogonal Matrix": ["orthogonal matrix"],
+  "Diagonal/Triangular": ["diagonal matrix", "triangular matrix"],
+
+  // decompositions
+  "Permutation Matrix": ["permutation matrix"],
+  "LU Decomposition": ["lu decomposition", "lu factorization"],
+  "QR Factorization": ["qr factorization", "qr decomposition"],
+  "SVD": ["svd", "singular value decomposition"],
+  "PCA": ["pca", "principal component analysis"],
+
+  // basis & linear maps
+  "Change of Basis": ["change of basis"],
+  "Transition Matrix": ["transition matrix"],
+  "Linear Transformation": ["linear transformation", "linear map"],
+  "Kernel & Image": ["kernel", "image of t", "range of t"],
+  "Composition & Isomorphism": ["composition", "isomorphism", "isomorphic"],
+
+  // polynomials & theorems
+  "Minimal Polynomial": ["minimal polynomial"],
+  "Spectral Theorem": ["spectral theorem"],
+
+  // applications
+  "Network Flow": ["network flow"],
+  "Graphics Transformations": ["graphics transformations", "graphics transform"],
+  "Linear Regression": ["linear regression", "least squares regression"],
+  "Differential Equations (LA)": ["systems of differential equations", "differential equations"],
+  "Data Compression": ["data compression"],
+
+  /* ------------- MULTIVARIABLE CALCULUS ------------- */
+  // 3D geometry & vectors
+  "3D Coordinate Systems": ["3d coordinate system", "coordinates in space", "3d space"],
+  "Geometry of Vectors": ["vector geometry", "vector properties", "magnitude", "length", "standard basis"],
+  "Cross Product": ["cross product", "vector product", "right hand rule"],
+  "Lines & Planes": ["equation of line", "equation of plane", "distance plane", "distance between line and plane"],
+  "Cylinders & Quadric Surfaces": ["cylinder", "quadric surface", "ellipsoid", "hyperboloid", "paraboloid"],
+
+  // vector functions & space curves
+  "Vector Functions": ["vector function", "space curve", "parametric curve"],
+  "Derivatives of Vector Functions": ["derivative of vector function", "tangent vector", "velocity vector", "acceleration vector", "tangent line"],
+  "Integrals of Vector Functions": ["integral of vector function", "line integral along curve"],
+  "Arc Length": ["arc length"],
+  "Motion in Space": ["motion in space", "curvature", "normal vector", "binormal vector"],
+
+  // multivariable functions & differentiation
+  "Multivariable Functions": ["multivariable function", "function of two variables", "function of several variables"],
+  "Partial Derivatives": ["partial derivative", "partial differentiation", "fx", "fy"],
+  "Tangent Planes & Linear Approximation": ["tangent plane", "linear approximation", "linearization"],
+  "Gradient & Directional Derivatives": ["gradient", "grad f", "∇f", "directional derivative", "rate of change", "level curve"],
+  "Optimization": ["critical point", "second derivative test", "local maximum", "local minimum", "saddle point"],
+  "Lagrange Multipliers": ["lagrange multiplier", "constrained optimization"],
+
+  // double & triple integrals
+  "Double Integrals": ["double integral", "iterated integral", "volume under surface", "average value"],
+  "Double Integrals in Polar Coordinates": ["polar coordinates", "polar double integral"],
+  "Applications of Double Integrals": ["mass from density", "probability density", "average value of a function"],
+  "Triple Integrals": ["triple integral", "volume integral"],
+  "Cylindrical Coordinates": ["cylindrical coordinates", "triple integral cylindrical"],
+  "Spherical Coordinates": ["spherical coordinates", "triple integral spherical"],
+
+  // vector calculus
+  "Vector Fields": ["vector field", "field visualization"],
+  "Line Integrals": ["line integral", "work along curve"],
+  "Fundamental Theorem for Line Integrals": ["fundamental theorem for line integrals", "conservative field", "potential function"],
+  "Green's Theorem": ["greens theorem", "green theorem"],
+  "Curl & Divergence": ["curl", "divergence", "del operator", "nabla", "∇×f", "∇·f"],
+  "Parametric Surfaces": ["parametric surface"],
+  "Surface Area": ["surface area parametric"],
+  "Surface Integrals": ["surface integral", "flux integral"],
+  "Stokes' Theorem": ["stokes theorem"],
+  "Divergence Theorem": ["divergence theorem", "gauss theorem"]
+};
+
+// Precompile regex matchers once (support space-or-hyphen)
+const TOPIC_TESTS = Object.entries(TOPIC_KEYWORDS).map(([label, words]) => {
+  const parts = words.map(w => {
+    const pattern = w
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")  // escape regex
+      .replace(/\s+/g, "[\\s-]+");             // allow spaces or hyphens
+    return pattern;
+  });
+  const re = new RegExp(`\\b(?:${parts.join("|")})\\b`, "i"); // word boundaries
+  return { label, re };
+});
+
 function extractTopics(log) {
-  const text = log.map((m) => m.content.toLowerCase()).join(" ");
-  const topics = [];
-  if (text.includes("derivative")) topics.push("Derivatives");
-  if (text.includes("integral")) topics.push("Integrals");
-  if (text.includes("limit")) topics.push("Limits");
-  if (text.includes("vector")) topics.push("Vectors");
-  if (text.includes("theorem")) topics.push("Theorem");
-  if (text.includes("dot product")) topics.push("Dot Product");
-  if (text.includes("cross product")) topics.push("Cross Product");
-  if (text.includes("plane")) topics.push("Planes");
-  return topics;
+  const text = normalizeText(log.map(m => m.content || "").join(" "));
+  const hits = new Set();
+  for (const { label, re } of TOPIC_TESTS) {
+    if (re.test(text)) hits.add(label);
+  }
+  return [...hits];
 }
 
 /***********************
