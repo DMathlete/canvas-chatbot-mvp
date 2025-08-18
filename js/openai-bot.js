@@ -27,7 +27,7 @@ let userId = urlParams.get("user_id");
 let userName = urlParams.get("user_name");
 
 if (!userId) {
-  userId = prompt("Enter your student ID (or initials):") || "anonymous_user";
+  userId = prompt("Enter your C-number:") || "anonymous_user";
 }
 console.log("✅ User Detected:", { userId, userName });
 
@@ -274,173 +274,130 @@ document.getElementById("userInput").addEventListener("keypress", function (even
 });
 
 /***********************
- *  TOPIC TAGGING (Scalable; LA + Multivariable)
+ *  TOPIC TAGGING (expanded) + HELPERS
  ***********************/
-// Normalize once for robust matching (case/accents/quotes/dashes)
-function normalizeText(s) {
-  return (s || "")
-    .toLowerCase()
-    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "") // strip accents
-    .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")       // smart quotes
-    .replace(/[–—]/g, "-");                            // em/en dashes → hyphen
+function extractTopics(log) {
+  // Join all message content (user + assistant) for tagging
+  const text = log.map(m => (m.content || "").toLowerCase()).join(" ");
+
+  // Canonical tag => array of phrases/keywords (all lowercase)
+  const TOPIC_MAP = {
+    /* ========= LINEAR ALGEBRA ========= */
+    "Python": ["python"],
+    "Matrices": ["matrix", "matrices"],
+    "Vectors": ["vector", "vectors"],
+    "Scalars": ["scalar", "scalar multiplication", "multiply scalar"],
+    "Transpose": ["transpose", "a^t", "x^t"],
+    "Identity Matrix": ["identity matrix", "identity"],
+    "Matrix Properties": ["properties", "associative", "commutative", "distributive"],
+    "Systems of Equations": ["systems of equations", "system of equations"],
+    "Gaussian Elimination": ["gaussian elimination", "elimination"],
+    "Gauss–Jordan": ["gauss-jordan", "gauss jordan"],
+    "REF": ["ref", "row echelon form"],
+    "RREF": ["rref", "reduced row echelon form"],
+    "Row Reduction": ["row reduction", "row-reduction"],
+    "Pivots": ["pivot", "pivots"],
+    "Free Variables": ["free variable", "free variables"],
+    "Consistency": ["consistent", "inconsistent", "consistency"],
+    "Homogeneous Systems": ["homogeneous", "homogeneous system"],
+    "Parametric Form": ["parametric form", "parametric solution"],
+    "Determinant": ["determinant", "det"],
+    "Cofactor Expansion": ["cofactor expansion", "laplace expansion"],
+    "Cramer’s Rule": ["cramer", "cramer’s rule", "cramers rule"],
+    "Inverses": ["inverse", "inverse matrix", "invertible"],
+    "Singular Matrix": ["singular matrix", "singular"],
+    "Inner/Dot Product": ["inner product", "dot product"],
+    "Vector Space": ["vector space"],
+    "Subspace": ["subspace"],
+    "Span": ["span", "spanning set"],
+    "Linear Independence": ["independence", "linearly independent", "dependent set"],
+    "Basis": ["basis", "standard basis", "orthonormal basis"],
+    "Dimension": ["dimension"],
+    "Column Space": ["column space", "col a", "colspace"],
+    "Row Space": ["row space", "rowspace"],
+    "Null Space": ["null space", "nullspace", "kernel"],
+    "Rank/Nullity": ["rank", "nullity", "rank-nullity"],
+    "Orthogonal": ["orthogonal", "perpendicular"],
+    "Orthogonal Complement": ["orthogonal complement"],
+    "Orthonormal": ["orthonormal"],
+    "Projection": ["projection", "proj"],
+    "Least Squares": ["least squares", "normal equations"],
+    "Eigenvalues/Eigenvectors": ["eigenvalue", "eigenvalues", "eigenvector", "eigenvectors", "characteristic polynomial"],
+    "Diagonalization": ["diagonalization", "diagonalize"],
+    "Defective Matrix": ["defective matrix", "defective"],
+    "Symmetric Matrices": ["symmetric"],
+    "Orthogonal Matrices": ["orthogonal matrix", "orthogonal matrices"],
+    "Diagonal Matrices": ["diagonal matrix", "diagonal matrices"],
+    "Gram–Schmidt": ["gram-schmidt", "gram schmidt"],
+
+    /* ======== MULTIVARIABLE CALCULUS ======== */
+    "Coordinates & Parametric Curves": ["parametric", "polar", "cylindrical", "spherical", "arc length", "parameterization"],
+    "Partial Derivatives": ["partial derivative", "partials", "fx", "fy", "fz", "ux", "uy"],
+    "Gradient": ["gradient", "grad", "∇f"],
+    "Directional Derivatives": ["directional derivative"],
+    "Tangent Planes & Linearization": ["tangent plane", "linearization", "differentials"],
+    "Chain Rule (Multi)": ["multivariable chain rule", "chain rule (multi)", "total derivative"],
+    "Implicit Functions & Jacobian": ["implicit function", "jacobian", "jacobian matrix", "determinant jacobian"],
+    "Optimization & LM": ["lagrange multipliers", "constrained optimization", "unconstrained optimization", "critical points", "hessian"],
+    "Double Integrals": ["double integral", "iterated integral", "area by integration"],
+    "Triple Integrals": ["triple integral", "volume integral"],
+    "Change of Variables": ["u-sub in multiple integrals", "change of variables", "jacobian determinant"],
+    "Vector Fields": ["vector field", "field lines"],
+    "Line Integrals": ["line integral", "work integral", "circulation"],
+    "Conservative Fields & Potentials": ["conservative field", "potential function", "exact differential"],
+    "Green’s Theorem": ["green's theorem", "greens theorem"],
+    "Surface Integrals": ["surface integral", "parametric surface", "surface area integral"],
+    "Flux": ["flux", "outward flux"],
+    "Curl": ["curl", "rotational"],
+    "Divergence": ["divergence", "div"],
+    "Stokes’ Theorem": ["stokes theorem", "stokes’ theorem"],
+    "Divergence Theorem": ["divergence theorem", "gauss theorem"],
+    "Applications (Physics/Geometry)": ["work", "mass density", "center of mass", "moment of inertia"]
+  };
+
+  // Count matches per canonical tag using whole-word/phrase regex
+  const counts = {};
+  for (const [tag, phrases] of Object.entries(TOPIC_MAP)) {
+    let c = 0;
+    for (const p of phrases) {
+      const esc = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${esc}\\b`, "g");
+      const m = text.match(re);
+      if (m) c += m.length;
+    }
+    if (c > 0) counts[tag] = c;
+  }
+
+  // Sort tags by frequency (desc), then alphabetically
+  const topics = Object.keys(counts).sort((a, b) =>
+    counts[b] - counts[a] || a.localeCompare(b)
+  );
+
+  return { topics, topic_counts: counts };
 }
 
-/**
- * Keyword dictionary: label -> array of keywords/phrases (include synonyms).
- * Spaces in keywords are treated as [\s-]+ so “lagrange multipliers” matches
- * “lagrange-multipliers” as well.
- */
-const TOPIC_KEYWORDS = {
-  /* ---------------- LINEAR ALGEBRA ---------------- */
-  // tooling
-  "Python": ["python"],
+/***********************
+ *  ANALYTICS HELPERS (tiny, for research)
+ ***********************/
+function computeAvgUserMessageLength(log) {
+  const userMsgs = log.filter(m => m.role === "user").map(m => m.content || "");
+  if (userMsgs.length === 0) return { chars: 0, words: 0 };
+  const totalChars = userMsgs.reduce((s, t) => s + t.length, 0);
+  const totalWords = userMsgs.reduce((s, t) => s + (t.trim() ? t.trim().split(/\s+/).length : 0), 0);
+  return {
+    chars: Math.round(totalChars / userMsgs.length),
+    words: Math.round(totalWords / userMsgs.length)
+  };
+}
 
-  // foundations
-  "Matrices": ["matrix", "matrices"],
-  "Vectors": ["vector", "vectors"],
-  "Scalar Multiplication": ["scalar multiplication"],
-  "Transpose": ["transpose", "transposition"],
-  "Identity Matrix": ["identity matrix", "identity"],
-  "Matrix Properties": ["matrix properties", "properties of matrices"],
+function computeStudentToBotRatio(log) {
+  const userCount = log.filter(m => m.role === "user").length;
+  const botCount  = log.filter(m => m.role === "assistant").length;
+  return botCount === 0 ? (userCount > 0 ? Infinity : 0) : +(userCount / botCount).toFixed(3);
+}
 
-  // systems + reduction
-  "Systems of Equations": ["system of equations", "systems of equations", "linear system", "simultaneous equations"],
-  "Gram–Schmidt": ["gram schmidt", "gram-schmidt", "gram–schmidt"],
-  "Gaussian Elimination (REF)": ["gaussian elimination", "row echelon form", "ref", "row-echelon form"],
-  "Gauss–Jordan (RREF)": ["gauss jordan", "gauss-jordan", "gauss–jordan", "reduced row echelon form", "rref"],
-  "Row Reduction": ["row reduction", "row-reduction"],
-  "Pivots": ["pivot", "pivots"],
-  "Free Variables": ["free variable", "free variables"],
-  "Consistency": ["consistent system", "inconsistent system", "consistency"],
-  "Homogeneous Systems": ["homogeneous system", "homogeneous"],
-  "Parametric Form": ["parametric form"],
-
-  // determinants & inverses
-  "Determinant": ["determinant", "det a", "det(a)"],
-  "Cofactor Expansion": ["cofactor expansion", "laplace expansion"],
-  "Cramer's Rule": ["cramer's rule", "cramers rule"],
-  "Inverse Matrix": ["inverse matrix", "inverses", "invertible", "nonsingular"],
-  "Singular Matrix": ["singular matrix"],
-  "Inner Product": ["inner product"],
-  "Dot Product": ["dot product", "projection"],
-
-  // vector spaces & subspaces
-  "Vector Space": ["vector space"],
-  "Subspace": ["subspace"],
-  "Span": ["span"],
-  "Linear Independence": ["linear independence", "independence"],
-  "Basis": ["basis", "standard basis"],
-  "Dimension": ["dimension", "dim v", "dim(v)"],
-  "Column Space": ["column space", "col a", "col(a)"],
-  "Row Space": ["row space", "row(a)"],
-  "Null Space": ["null space", "kernel", "null(a)"],
-  "Rank & Nullity": ["rank", "nullity", "rank-nullity"],
-
-  // orthogonality & projections
-  "Orthogonal": ["orthogonal", "orthogonality"],
-  "Orthogonal Complement": ["orthogonal complement"],
-  "Orthonormal": ["orthonormal"],
-  "Projection": ["projection", "projection matrix", "orthogonal projection"],
-  "Least Squares": ["least squares", "normal equations"],
-
-  // eigen & diagonalization
-  "Eigenvalues": ["eigenvalue", "eigenvalues"],
-  "Eigenvectors": ["eigenvector", "eigenvectors"],
-  "Characteristic Polynomial": ["characteristic polynomial"],
-  "Diagonalization": ["diagonalization", "diagonalizable"],
-  "Defective Matrix": ["defective matrix"],
-  "Symmetric Matrix": ["symmetric matrix"],
-  "Orthogonal Matrix": ["orthogonal matrix"],
-  "Diagonal/Triangular": ["diagonal matrix", "triangular matrix"],
-
-  // decompositions
-  "Permutation Matrix": ["permutation matrix"],
-  "LU Decomposition": ["lu decomposition", "lu factorization"],
-  "QR Factorization": ["qr factorization", "qr decomposition"],
-  "SVD": ["svd", "singular value decomposition"],
-  "PCA": ["pca", "principal component analysis"],
-
-  // basis & linear maps
-  "Change of Basis": ["change of basis"],
-  "Transition Matrix": ["transition matrix"],
-  "Linear Transformation": ["linear transformation", "linear map"],
-  "Kernel & Image": ["kernel", "image of t", "range of t"],
-  "Composition & Isomorphism": ["composition", "isomorphism", "isomorphic"],
-
-  // polynomials & theorems
-  "Minimal Polynomial": ["minimal polynomial"],
-  "Spectral Theorem": ["spectral theorem"],
-
-  // applications
-  "Network Flow": ["network flow"],
-  "Graphics Transformations": ["graphics transformations", "graphics transform"],
-  "Linear Regression": ["linear regression", "least squares regression"],
-  "Differential Equations (LA)": ["systems of differential equations", "differential equations"],
-  "Data Compression": ["data compression"],
-
-  /* ------------- MULTIVARIABLE CALCULUS ------------- */
-  // 3D geometry & vectors
-  "3D Coordinate Systems": ["3d coordinate system", "coordinates in space", "3d space"],
-  "Geometry of Vectors": ["vector geometry", "vector properties", "magnitude", "length", "standard basis"],
-  "Cross Product": ["cross product", "vector product", "right hand rule"],
-  "Lines & Planes": ["equation of line", "equation of plane", "distance plane", "distance between line and plane"],
-  "Cylinders & Quadric Surfaces": ["cylinder", "quadric surface", "ellipsoid", "hyperboloid", "paraboloid"],
-
-  // vector functions & space curves
-  "Vector Functions": ["vector function", "space curve", "parametric curve"],
-  "Derivatives of Vector Functions": ["derivative of vector function", "tangent vector", "velocity vector", "acceleration vector", "tangent line"],
-  "Integrals of Vector Functions": ["integral of vector function", "line integral along curve"],
-  "Arc Length": ["arc length"],
-  "Motion in Space": ["motion in space", "curvature", "normal vector", "binormal vector"],
-
-  // multivariable functions & differentiation
-  "Multivariable Functions": ["multivariable function", "function of two variables", "function of several variables"],
-  "Partial Derivatives": ["partial derivative", "partial differentiation", "fx", "fy"],
-  "Tangent Planes & Linear Approximation": ["tangent plane", "linear approximation", "linearization"],
-  "Gradient & Directional Derivatives": ["gradient", "grad f", "∇f", "directional derivative", "rate of change", "level curve"],
-  "Optimization": ["critical point", "second derivative test", "local maximum", "local minimum", "saddle point"],
-  "Lagrange Multipliers": ["lagrange multiplier", "constrained optimization"],
-
-  // double & triple integrals
-  "Double Integrals": ["double integral", "iterated integral", "volume under surface", "average value"],
-  "Double Integrals in Polar Coordinates": ["polar coordinates", "polar double integral"],
-  "Applications of Double Integrals": ["mass from density", "probability density", "average value of a function"],
-  "Triple Integrals": ["triple integral", "volume integral"],
-  "Cylindrical Coordinates": ["cylindrical coordinates", "triple integral cylindrical"],
-  "Spherical Coordinates": ["spherical coordinates", "triple integral spherical"],
-
-  // vector calculus
-  "Vector Fields": ["vector field", "field visualization"],
-  "Line Integrals": ["line integral", "work along curve"],
-  "Fundamental Theorem for Line Integrals": ["fundamental theorem for line integrals", "conservative field", "potential function"],
-  "Green's Theorem": ["greens theorem", "green theorem"],
-  "Curl & Divergence": ["curl", "divergence", "del operator", "nabla", "∇×f", "∇·f"],
-  "Parametric Surfaces": ["parametric surface"],
-  "Surface Area": ["surface area parametric"],
-  "Surface Integrals": ["surface integral", "flux integral"],
-  "Stokes' Theorem": ["stokes theorem"],
-  "Divergence Theorem": ["divergence theorem", "gauss theorem"]
-};
-
-// Precompile regex matchers once (support space-or-hyphen)
-const TOPIC_TESTS = Object.entries(TOPIC_KEYWORDS).map(([label, words]) => {
-  const parts = words.map(w => {
-    const pattern = w
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")  // escape regex
-      .replace(/\s+/g, "[\\s-]+");             // allow spaces or hyphens
-    return pattern;
-  });
-  const re = new RegExp(`\\b(?:${parts.join("|")})\\b`, "i"); // word boundaries
-  return { label, re };
-});
-
-function extractTopics(log) {
-  const text = normalizeText(log.map(m => m.content || "").join(" "));
-  const hits = new Set();
-  for (const { label, re } of TOPIC_TESTS) {
-    if (re.test(text)) hits.add(label);
-  }
-  return [...hits];
+function computeSessionDurationSec(start, end) {
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
 }
 
 /***********************
@@ -448,6 +405,11 @@ function extractTopics(log) {
  ***********************/
 async function logSession() {
   try {
+    const { topics, topic_counts } = extractTopics(messageLog);
+    const avgLens = computeAvgUserMessageLength(messageLog);
+    const ratio   = computeStudentToBotRatio(messageLog);
+    const durationSec = computeSessionDurationSec(startTime, new Date());
+
     const metadata = {
       session_id: sessionId,
       user_id: userId,
@@ -456,9 +418,18 @@ async function logSession() {
       total_message_count: messageLog.length,
       start_time: startTime.toISOString(),
       end_time: new Date().toISOString(),
-      topics: extractTopics(messageLog),
+      // Topics
+      topics,
+      topic_counts,
+      // NEW: richer engagement metrics
+      avg_user_msg_len_chars: avgLens.chars,
+      avg_user_msg_len_words: avgLens.words,
+      student_to_bot_ratio: ratio,
+      session_duration_sec: durationSec,
+      // Full transcript (for qualitative coding, if permitted by IRB)
       messages: messageLog
     };
+
     await db.collection("chat_sessions").doc(sessionId).set(metadata, { merge: true });
     console.log("✅ Session metadata updated in Firebase:", metadata);
   } catch (err) {
