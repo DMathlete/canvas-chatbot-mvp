@@ -18,8 +18,11 @@ let messageLog = [
 let sessionId = "session_" + Math.random().toString(36).substr(2, 9);
 let startTime = new Date();
 
+let userId = prompt("Enter your C-number:") || "anonymous_user";
+let userName = null;
+
 // Prefer Canvas URL params if present, else ask once for an ID
-const urlParams = new URLSearchParams(window.location.search);
+/*const urlParams = new URLSearchParams(window.location.search);
 let userId = urlParams.get("user_id");
 let userName = urlParams.get("user_name");
 
