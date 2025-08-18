@@ -2,34 +2,62 @@
 <html>
 <head>
   <title>Chat Sessions Dashboard</title>
+  <meta charset="utf-8" />
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background: #333; color: white; }
-    tr:hover { background-color: #f1f1f1; }
-    button { margin-top: 10px; padding: 8px 12px; }
+    h2 { margin-bottom: 0.5rem; }
+    .subtle { color:#555; margin:0 0 12px; }
+    .controls { display:flex; gap:10px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
+    .controls input { padding:6px 8px; font-size: 14px; }
+    .controls button { padding:8px 12px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #333; color: white; position: sticky; top: 0; z-index: 1; }
+    tr:hover { background-color: #f7f7f7; }
+    code { background:#f3f3f3; padding:2px 4px; border-radius: 4px; }
+    .nowrap { white-space: nowrap; }
+    .num { text-align: right; }
+    .small { font-size: 12px; color:#444; }
+    .pill { display:inline-block; background:#eef; border:1px solid #dde; padding:2px 6px; margin:2px; border-radius: 999px; font-size: 12px; }
   </style>
 </head>
 <body>
   <h2>Chat Sessions Dashboard</h2>
+  <p class="subtle">Viewing documents from the <strong>chat_sessions</strong> collection.</p>
+
+  <div class="controls">
+    <input id="filterUser" type="text" placeholder="Filter by User ID or Name…" />
+    <input id="filterTopic" type="text" placeholder="Filter by topic keyword…" />
+    <input id="filterAfter" type="datetime-local" />
+    <input id="filterBefore" type="datetime-local" />
+    <button onclick="reload()">Reload</button>
+    <button onclick="downloadCSV()">Download CSV</button>
+  </div>
+
   <table id="sessionsTable">
     <thead>
       <tr>
         <th>Session ID</th>
         <th>User ID</th>
         <th>User Name</th>
-        <th>Start Time</th>
-        <th>Message Count</th>
+        <th class="nowrap">Start Time</th>
+        <th class="nowrap">End Time</th>
+        <th class="num">Duration (s)</th>
+        <th class="num">User Msgs</th>
+        <th class="num">Total Msgs</th>
+        <th class="num">Avg Len<br/><span class="small">(chars / words)</span></th>
+        <th class="num">Student:Bot</th>
         <th>Topics</th>
+        <th>Topic Counts</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
-  <button onclick="downloadCSV()">Download CSV</button>
 
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
   <script>
     // ✅ Firebase Config (same as chatbot)
     const firebaseConfig = {
@@ -40,42 +68,163 @@
       messagingSenderId: "93513233362",
       appId: "1:93513233362:web:874453254d707bde224e0b"
     };
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // ✅ Load sessions into table
-    db.collection("chat_sessions").get().then(snapshot => {
-      const tableBody = document.querySelector("#sessionsTable tbody");
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const row = `<tr>
-          <td>${data.session_id}</td>
+    const tableBody = document.querySelector("#sessionsTable tbody");
+    const filterUser   = document.getElementById("filterUser");
+    const filterTopic  = document.getElementById("filterTopic");
+    const filterAfter  = document.getElementById("filterAfter");
+    const filterBefore = document.getElementById("filterBefore");
+
+    let lastSnapshotData = [];
+
+    function matchesFilters(data) {
+      const u = (filterUser.value || "").toLowerCase().trim();
+      const t = (filterTopic.value || "").toLowerCase().trim();
+
+      if (u) {
+        const hay = ((data.user_id || "") + " " + (data.user_name || "")).toLowerCase();
+        if (!hay.includes(u)) return false;
+      }
+
+      if (t) {
+        const topics = (data.topics || []).join(" ").toLowerCase();
+        const topicCountsText = JSON.stringify(data.topic_counts || {}).toLowerCase();
+        if (!topics.includes(t) && !topicCountsText.includes(t)) return false;
+      }
+
+      const afterStr = filterAfter.value;
+      const beforeStr = filterBefore.value;
+      const start = new Date(data.start_time || 0);
+
+      if (afterStr) {
+        const after = new Date(afterStr);
+        if (isFinite(after) && start < after) return false;
+      }
+      if (beforeStr) {
+        const before = new Date(beforeStr);
+        if (isFinite(before) && start > before) return false;
+      }
+      return true;
+    }
+
+    function renderRows(rows) {
+      tableBody.innerHTML = "";
+      rows.forEach(data => {
+        const topics = Array.isArray(data.topics) ? data.topics : [];
+        const topicCounts = data.topic_counts || {};
+        const topicCountsPretty = Object.keys(topicCounts)
+          .sort((a, b) => topicCounts[b] - topicCounts[a] || a.localeCompare(b))
+          .slice(0, 10) // top 10 for brevity
+          .map(k => `<span class="pill">${k}: ${topicCounts[k]}</span>`)
+          .join(" ");
+
+        const avgChars = data.avg_user_msg_len_chars ?? "";
+        const avgWords = data.avg_user_msg_len_words ?? "";
+        const ratio    = (data.student_to_bot_ratio === Infinity) ? "∞" :
+                         (data.student_to_bot_ratio ?? "");
+        const startTS  = data.start_time ? new Date(data.start_time) : null;
+        const endTS    = data.end_time ? new Date(data.end_time) : null;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${data.session_id || ""}</td>
           <td>${data.user_id || ""}</td>
           <td>${data.user_name || ""}</td>
-          <td>${new Date(data.start_time).toLocaleString()}</td>
-          <td>${data.user_message_count || 0}</td>
-          <td>${(data.topics || []).join(", ")}</td>
-        </tr>`;
-        tableBody.innerHTML += row;
+          <td class="nowrap">${startTS ? startTS.toLocaleString() : ""}</td>
+          <td class="nowrap">${endTS ? endTS.toLocaleString() : ""}</td>
+          <td class="num">${data.session_duration_sec ?? ""}</td>
+          <td class="num">${data.user_message_count ?? 0}</td>
+          <td class="num">${data.total_message_count ?? 0}</td>
+          <td class="num">${avgChars}${avgChars!==""? " / " : ""}${avgWords}</td>
+          <td class="num">${ratio}</td>
+          <td>${topics.map(t => `<span class="pill">${t}</span>`).join(" ")}</td>
+          <td>${topicCountsPretty}</td>
+        `;
+        tableBody.appendChild(row);
       });
-    });
+    }
 
-    // ✅ CSV Download
-    function downloadCSV() {
-      let csv = "Session ID,User ID,User Name,Start Time,Message Count,Topics\n";
-      const rows = document.querySelectorAll("#sessionsTable tbody tr");
-      rows.forEach(row => {
-        const cols = row.querySelectorAll("td");
-        const values = Array.from(cols).map(td => `"${td.innerText}"`);
-        csv += values.join(",") + "\n";
+    async function loadSessions() {
+      const snapshot = await db.collection("chat_sessions").get();
+      const data = [];
+      snapshot.forEach(doc => data.push(doc.data()));
+
+      // Sort newest first by start_time
+      data.sort((a, b) => {
+        const ta = (a.start_time ? Date.parse(a.start_time) : 0);
+        const tb = (b.start_time ? Date.parse(b.start_time) : 0);
+        return tb - ta;
       });
+
+      lastSnapshotData = data;
+      renderRows(data.filter(matchesFilters));
+    }
+
+    function reload() {
+      renderRows(lastSnapshotData.filter(matchesFilters));
+    }
+    filterUser.addEventListener("input", reload);
+    filterTopic.addEventListener("input", reload);
+    filterAfter.addEventListener("change", reload);
+    filterBefore.addEventListener("change", reload);
+
+    // ✅ CSV Download with new fields
+    function downloadCSV() {
+      const rows = lastSnapshotData.filter(matchesFilters);
+      const headers = [
+        "Session ID","User ID","User Name","Start Time","End Time",
+        "Duration (s)","User Msgs","Total Msgs",
+        "Avg User Msg Len (chars)","Avg User Msg Len (words)","Student:Bot",
+        "Topics","Topic Counts (JSON)"
+      ];
+      let csv = headers.join(",") + "\n";
+
+      for (const d of rows) {
+        const topics = Array.isArray(d.topics) ? d.topics.join("; ") : "";
+        const topicCounts = d.topic_counts ? JSON.stringify(d.topic_counts).replace(/"/g, '""') : "";
+        const start = d.start_time ? new Date(d.start_time).toLocaleString() : "";
+        const end   = d.end_time ? new Date(d.end_time).toLocaleString() : "";
+        const ratio = (d.student_to_bot_ratio === Infinity) ? "Infinity" :
+                      (d.student_to_bot_ratio ?? "");
+
+        const line = [
+          d.session_id || "",
+          d.user_id || "",
+          d.user_name || "",
+          start,
+          end,
+          d.session_duration_sec ?? "",
+          d.user_message_count ?? 0,
+          d.total_message_count ?? 0,
+          d.avg_user_msg_len_chars ?? "",
+          d.avg_user_msg_len_words ?? "",
+          ratio,
+          topics,
+          topicCounts
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
+        csv += line + "\n";
+      }
+
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = "chat_sessions.csv";
       a.click();
+      URL.revokeObjectURL(url);
     }
+
+    // Expose for buttons
+    window.downloadCSV = downloadCSV;
+    window.reload = reload;
+
+    // Load on start
+    loadSessions().catch(err => {
+      console.error("Failed to load sessions:", err);
+      alert("Failed to load sessions. Check console for details.");
+    });
   </script>
 </body>
 </html>
