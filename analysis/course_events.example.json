@@ -1,0 +1,16 @@
+{
+    "quizzes": [
+        {"date": "2024-09-15", "label": "Quiz 1"},
+        {"date": "2024-10-01", "label": "Quiz 2"},
+        {"date": "2024-10-15", "label": "Quiz 3"},
+        {"date": "2024-11-01", "label": "Quiz 4"}
+    ],
+    "exams": [
+        {"date": "2024-10-20", "label": "Midterm"},
+        {"date": "2024-12-15", "label": "Final Exam"}
+    ],
+    "other": [
+        {"date": "2024-11-15", "label": "Project Due"},
+        {"date": "2024-11-25", "label": "Thanksgiving Break"}
+    ]
+}
