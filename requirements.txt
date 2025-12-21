@@ -1,0 +1,12 @@
+# Firebase Chatbot Analysis Pipeline Dependencies
+# Install with: pip install -r requirements.txt
+
+# Firebase Admin SDK for Firestore export
+firebase-admin>=5.0.0
+
+# Data analysis
+pandas>=1.3.0
+
+# Visualization
+matplotlib>=3.4.0
+seaborn>=0.11.0
