@@ -40,3 +40,12 @@ outputs/chat_sessions_classified.json
 
 # Course events (may contain sensitive dates)
 analysis/course_events.json
+
+# Allow analysis event configuration
+!analysis/course_events.json
+!analysis/course_events.example.json
+
+# Allow course event configuration files (non-sensitive)
+!analysis/course_events.json
+!analysis/course_events.example.json
+
