@@ -248,24 +248,75 @@ Sessions classified as `mixed_or_uncertain` include:
 
 ---
 
-## 6. Known Limitations
+## 6. Event Markers and Contextual Annotation
 
-### 6.1 Course Inference Limitations
+### 6.1 Purpose
+
+Time series visualizations include optional vertical markers indicating course assessment events (Written Partial Reviews, exams). These markers serve as **contextual annotations** to aid interpretation of engagement patterns, not as indicators of causal relationships.
+
+### 6.2 Event Data Source
+
+Event dates were obtained from official course schedules for:
+- **MA205** (Multivariable Calculus): WPRs 1-4
+- **MA371** (Linear Algebra): WPRs 1-3
+
+Events are stored in `analysis/course_events.json` with fields for date, label, course association, and event type.
+
+### 6.3 Interpretation Guidance
+
+Increased chatbot usage before assessment events may reflect:
+- Students seeking help with course material
+- Exam preparation behavior
+- Natural variation in academic workload
+
+**Caution**: Correlation between event proximity and usage does not establish causation. Other factors (e.g., assignment deadlines, semester timing) may contribute to observed patterns.
+
+---
+
+## 7. User-Level Analysis and De-identification
+
+### 7.1 User Identification
+
+User identifiers (C-numbers) are normalized for consistent aggregation:
+- Leading "C" prefix is stripped (C12345678 → 12345678)
+- IDs are zero-padded to 8 digits for consistency
+
+### 7.2 Anonymous User Handling
+
+Sessions with `user_id = "anonymous_user"` or missing identifiers are:
+- **Included** in session-level aggregate metrics
+- **Excluded** from per-user statistics to prevent artificial inflation
+- **Reported separately** with counts and percentages for transparency
+
+### 7.3 De-identification for Publication
+
+A de-identified user summary is generated using salted SHA-256 hashing:
+- Original user IDs are replaced with 16-character hash prefixes
+- Salt can be configured via `HASH_SALT` environment variable
+- Same salt produces consistent hashes for longitudinal analysis
+
+---
+
+## 8. Known Limitations
+
+### 8.1 Course Inference Limitations
 
 1. **Post-hoc classification**: Course labels are inferred rather than directly observed, introducing potential misclassification
 2. **Keyword dependence**: Classification quality depends on the comprehensiveness and accuracy of keyword lists
 3. **Overlap handling**: Some topics (e.g., "matrix", "vector") appear in both courses; weights attempt to balance this
 4. **Evolution of terminology**: Student and assistant language may not perfectly match canonical keyword lists
 5. **Context insensitivity**: Keyword matching does not account for negation or contextual usage
+6. **System prompt exclusion**: Classification excludes system prompts to avoid bias, but this means tutor-initiated topic mentions are not counted
 
-### 6.2 Data Limitations
+### 8.2 Data Limitations
 
 1. **Self-selection bias**: Only students who chose to use the chatbot are represented
 2. **Session definition**: A "session" represents a single browser session; students may have multiple sessions
-3. **Anonymous users**: Some sessions have `user_id = "anonymous_user"` limiting user-level analysis
+3. **Anonymous users**: Sessions without valid user IDs are excluded from per-user analysis
 4. **Missing course metadata**: Without ground-truth course labels, classification accuracy cannot be validated
+5. **C-number variations**: Different formats (C12345678 vs 12345678) are normalized, but typos may create spurious users
 
-### 6.3 Metric Limitations
+### 8.3 Metric Limitations
 
 1. **Session duration**: Measures time from first to last message, not active engagement time
 2. **Message counts**: Do not capture message quality or learning outcomes
@@ -273,29 +324,29 @@ Sessions classified as `mixed_or_uncertain` include:
 
 ---
 
-## 7. Threats to Validity
+## 9. Threats to Validity
 
-### 7.1 Internal Validity
+### 9.1 Internal Validity
 
 - **Classification error**: Misclassified sessions may bias course-level comparisons
 - **Survivorship bias**: Analysis only includes completed sessions; abandoned sessions may be underrepresented
 
-### 7.2 External Validity
+### 9.2 External Validity
 
 - **Single institution**: Results may not generalize to other institutions or student populations
 - **Specific courses**: Findings are specific to multivariable calculus and linear algebra
 - **Deployment context**: The chatbot was supplementary; primary instruction was in-person
 
-### 7.3 Construct Validity
+### 9.3 Construct Validity
 
 - **Engagement operationalization**: Session count and message volume may not fully capture meaningful engagement
 - **Course inference validity**: Keyword-based classification assumes content is primarily course-related
 
 ---
 
-## 8. Reproducibility
+## 10. Reproducibility
 
-### 8.1 Software Requirements
+### 10.1 Software Requirements
 
 - Python 3.8+
 - pandas >= 1.3.0
@@ -303,7 +354,7 @@ Sessions classified as `mixed_or_uncertain` include:
 - seaborn >= 0.11.0
 - firebase-admin >= 5.0.0
 
-### 8.2 Pipeline Execution
+### 10.2 Pipeline Execution
 
 ```bash
 # Step 1: Export data from Firestore
@@ -313,7 +364,7 @@ python scripts/export_firestore_chat_sessions.py
 python analysis/run_analysis.py
 ```
 
-### 8.3 Configuration
+### 10.3 Configuration
 
 Classification parameters can be adjusted via command-line arguments:
 
@@ -321,14 +372,17 @@ Classification parameters can be adjusted via command-line arguments:
 python analysis/run_analysis.py --threshold 5 --dpi 300
 ```
 
-### 8.4 Output Files
+### 10.4 Output Files
 
 | File | Description |
 |------|-------------|
 | `outputs/chat_sessions_raw.json` | Raw exported session data |
-| `outputs/chat_sessions_analysis.csv` | Processed data with classifications |
+| `outputs/chat_sessions_analysis.csv` | Processed session data with classifications |
+| `outputs/user_level_summary.csv` | Per-user engagement metrics |
+| `outputs/user_level_summary_deidentified.csv` | De-identified user metrics (hashed IDs) |
+| `outputs/wpr_window_summary.csv` | Pre-WPR engagement analysis |
 | `outputs/analysis_summary.json` | Aggregate metrics |
-| `outputs/figures/*.png` | Publication-ready visualizations |
+| `outputs/figures/*.png` | Publication-ready visualizations (11 figures) |
 
 ---
 

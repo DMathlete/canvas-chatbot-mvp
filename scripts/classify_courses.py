@@ -369,12 +369,20 @@ class CourseClassifier:
         self.la_keywords = LINEAR_ALGEBRA_KEYWORDS
 
     def _extract_text(self, session: Dict[str, Any]) -> str:
-        """Extract all text content from a session for analysis."""
+        """Extract all text content from a session for analysis.
+
+        Note: Excludes system messages to prevent the system prompt
+        (which mentions both courses) from biasing classification.
+        """
         text_parts = []
 
         # Extract from messages array if present
+        # Exclude system messages to avoid bias from system prompt
         messages = session.get("messages", [])
         for msg in messages:
+            role = msg.get("role", "")
+            if role == "system":
+                continue  # Skip system prompt
             content = msg.get("content", "")
             if content and isinstance(content, str):
                 text_parts.append(content)
