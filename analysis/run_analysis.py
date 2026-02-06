@@ -9,8 +9,8 @@ This script performs:
 1. Data loading and preprocessing
 2. Course classification (using keyword scoring)
 3. Engagement metric computation (session-level and user-level)
-4. Visualization generation (including WPR event markers)
-5. CSV export (sessions, user summaries, WPR window analysis)
+4. Visualization generation (including exam event markers)
+5. CSV export (sessions, user summaries, exam window analysis)
 
 Usage:
     python analysis/run_analysis.py [--input PATH] [--threshold N] [--dpi N]
@@ -71,18 +71,18 @@ class AnalysisConfig:
     figure_format: str = "png"
     style: str = "seaborn-v0_8-whitegrid"
 
-    # WPR window settings
-    wpr_window_days: int = 3  # Days before WPR to include in window
-    wpr_include_day_of: bool = False  # Include the WPR day itself in window
+    # Exam window settings
+    exam_window_days: int = 3  # Days before exam to include in window
+    exam_include_day_of: bool = False  # Include the exam day itself in window
 
 
 @dataclass
 class CourseEvent:
-    """Represents a course event (WPR, exam, etc.)."""
+    """Represents a course event (exam, quiz, etc.)."""
     date: date
     label: str
     course: str  # "multivariable_calculus", "linear_algebra", or "both"
-    event_type: str  # "wpr", "exam", "quiz", etc.
+    event_type: str  # "exam", "quiz", etc.
 
 
 def load_course_events(events_path: Optional[Path]) -> List[CourseEvent]:
@@ -92,7 +92,7 @@ def load_course_events(events_path: Optional[Path]) -> List[CourseEvent]:
     Expected format:
     {
         "events": [
-            {"date": "2025-09-09", "label": "WPR 1", "course": "multivariable_calculus", "type": "wpr"},
+            {"date": "2025-09-09", "label": "Exam 1", "course": "multivariable_calculus", "type": "exam"},
             ...
         ]
     }
@@ -529,19 +529,19 @@ def create_deidentified_user_summary(user_stats: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================================
-# WPR WINDOW ANALYSIS
+# EXAM WINDOW ANALYSIS
 # ============================================================================
 
-def compute_wpr_window_metrics(
+def compute_exam_window_metrics(
     df: pd.DataFrame,
     events: List[CourseEvent],
     window_days: int = 3,
     include_day_of: bool = False,
 ) -> pd.DataFrame:
     """
-    Compute engagement metrics for the window before each WPR.
+    Compute engagement metrics for the window before each exam.
 
-    For each WPR:
+    For each exam:
     - Count unique users with >=1 session in the N days prior
     - Count total sessions in that window
     - If course-specific, only count sessions from that course
@@ -549,25 +549,25 @@ def compute_wpr_window_metrics(
     Args:
         df: Session DataFrame
         events: List of CourseEvent objects
-        window_days: Number of days before WPR to include
-        include_day_of: Whether to include the WPR day itself
+        window_days: Number of days before exam to include
+        include_day_of: Whether to include the exam day itself
 
     Returns:
-        DataFrame with WPR window metrics
+        DataFrame with exam window metrics
     """
     valid = df[df["date"].notna()].copy()
 
-    # Filter to WPR events only
-    wpr_events = [e for e in events if e.event_type == "wpr"]
+    # Filter to exam events only
+    exam_events = [e for e in events if e.event_type == "exam"]
 
-    if not wpr_events:
+    if not exam_events:
         return pd.DataFrame(columns=[
-            "wpr_date", "label", "course", "window_start", "window_end",
+            "exam_date", "label", "course", "window_start", "window_end",
             "unique_users", "total_sessions", "total_user_messages"
         ])
 
     records = []
-    for event in wpr_events:
+    for event in exam_events:
         # Calculate window
         if include_day_of:
             window_end = event.date
@@ -593,7 +593,7 @@ def compute_wpr_window_metrics(
         # If "both", use all sessions (no additional filtering)
 
         records.append({
-            "wpr_date": str(event.date),
+            "exam_date": str(event.date),
             "label": event.label,
             "course": event.course,
             "window_start": str(window_start),
@@ -668,8 +668,7 @@ def plot_sessions_per_day_with_events(
 
     # Add event markers with staggered labels
     event_colors = {
-        "wpr": "#dc2626",
-        "exam": "#7c3aed",
+        "exam": "#dc2626",
         "quiz": "#f59e0b",
         "other": "#10b981",
     }
@@ -699,14 +698,14 @@ def plot_sessions_per_day_with_events(
                 # Stagger y position
                 y_offset = stagger_offsets[i % len(stagger_offsets)]
 
-                # Add label (only for WPRs to reduce clutter)
-                if event.event_type == "wpr":
-                    # Create label with course indicator
-                    if course_filter is None and event.course != "both":
-                        course_abbrev = "MA205" if event.course == "multivariable_calculus" else "MA371"
+                # Add label for exams with course indicator
+                if event.event_type == "exam":
+                    # Always include course abbreviation in label
+                    course_abbrev = "MA205" if event.course == "multivariable_calculus" else "MA371"
+                    if course_filter is None:
                         label = f"{event.label}\n({course_abbrev})"
                     else:
-                        label = event.label
+                        label = f"{event.label} ({course_abbrev})"
 
                     ax.text(
                         event_date, y_max * y_offset, label,
@@ -729,11 +728,11 @@ def plot_sessions_per_day_with_events(
         from matplotlib.lines import Line2D
         legend_elements = []
         event_types_present = set(e.event_type for e in filtered_events)
-        for etype in ["wpr", "exam", "quiz", "other"]:
+        for etype in ["exam", "quiz", "other"]:
             if etype in event_types_present:
                 legend_elements.append(
                     Line2D([0], [0], color=event_colors.get(etype, "#666"),
-                          linestyle="--", label=etype.upper())
+                          linestyle="--", label=etype.capitalize())
                 )
         if legend_elements:
             ax.legend(handles=legend_elements, loc="upper left", framealpha=0.9)
@@ -1193,17 +1192,17 @@ def run_analysis(config: AnalysisConfig):
         print(f"    WARNING: {anonymous_stats['anonymous_session_pct']:.1f}% of sessions are anonymous")
         print(f"             ({anonymous_stats['anonymous_session_count']} sessions excluded from per-user analysis)")
 
-    # Step 6: Compute WPR window metrics
-    print("\n[6/8] Computing WPR window metrics...")
-    wpr_window_metrics = compute_wpr_window_metrics(
+    # Step 6: Compute exam window metrics
+    print("\n[6/8] Computing exam window metrics...")
+    exam_window_metrics = compute_exam_window_metrics(
         df, course_events,
-        window_days=config.wpr_window_days,
-        include_day_of=config.wpr_include_day_of,
+        window_days=config.exam_window_days,
+        include_day_of=config.exam_include_day_of,
     )
-    if len(wpr_window_metrics) > 0:
-        print(f"    Analyzed {len(wpr_window_metrics)} WPR windows")
+    if len(exam_window_metrics) > 0:
+        print(f"    Analyzed {len(exam_window_metrics)} exam windows")
     else:
-        print("    No WPR events found")
+        print("    No exam events found")
 
     # Step 7: Generate visualizations
     print("\n[7/8] Generating visualizations...")
@@ -1306,10 +1305,10 @@ def run_analysis(config: AnalysisConfig):
     user_stats_deidentified.to_csv(config.output_dir / "user_level_summary_deidentified.csv", index=False)
     print(f"Saved: {config.output_dir / 'user_level_summary_deidentified.csv'}")
 
-    # WPR window summary
-    if len(wpr_window_metrics) > 0:
-        wpr_window_metrics.to_csv(config.output_dir / "wpr_window_summary.csv", index=False)
-        print(f"Saved: {config.output_dir / 'wpr_window_summary.csv'}")
+    # Exam window summary
+    if len(exam_window_metrics) > 0:
+        exam_window_metrics.to_csv(config.output_dir / "exam_window_summary.csv", index=False)
+        print(f"Saved: {config.output_dir / 'exam_window_summary.csv'}")
 
     print("\n" + "=" * 60)
     print("Analysis Complete!")
