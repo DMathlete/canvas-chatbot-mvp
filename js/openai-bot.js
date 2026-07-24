@@ -2,7 +2,7 @@
  *  CONFIG
  ***********************/
 const FUNCTIONS_BASE = 'https://us-central1-canvaschatbot.cloudfunctions.net'; // <- your region+project
-const BOT_PROXY_URL   = 'https://chatbot-proxy--jsustaita02.replit.app';   // <- your Replit proxy
+const BOT_PROXY_URL   = 'https://chatbot-proxy--jsustaita02.replit.app/chat';   // <- your Replit proxy
 
 /***********************
  *  SESSION + USER
